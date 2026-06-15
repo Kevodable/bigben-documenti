@@ -147,6 +147,18 @@
   .save-y{background:var(--steel);color:#fff;}.save-n{background:#f1f4f6;color:#3a4753;}
   .hint{font-size:12px;color:var(--muted);margin-top:6px;}
 
+  /* category management */
+  .cat-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .cat-row input[type=text]{flex:1;min-width:0;margin:0;}
+  .cat-arrows{display:flex;flex-direction:column;gap:3px;flex-shrink:0;}
+  .cat-arrows button{background:#f1f4f6;border:1px solid #dfe4e8;border-radius:6px;width:28px;height:19px;font-size:10px;line-height:1;
+    cursor:pointer;color:#52616d;display:flex;align-items:center;justify-content:center;padding:0;}
+  .cat-arrows button:disabled{opacity:.3;cursor:default;}
+  .cat-del-btn,.cat-add-btn{border:none;border-radius:9px;width:42px;height:42px;font-size:16px;cursor:pointer;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;}
+  .cat-del-btn{background:var(--red-bg);color:var(--red);}
+  .cat-add-btn{background:var(--steel);color:#fff;}
+
   .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#22303c;color:#fff;
     padding:13px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:80;opacity:0;pointer-events:none;transition:all .25s;box-shadow:0 6px 20px rgba(0,0,0,.3);}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -197,16 +209,7 @@
         <div class="actions"><button class="pill-btn" onclick="resetAll()">&#8635; Reset</button></div>
       </div>
       <div class="search"><input id="q" type="text" placeholder="Cerca documento, apparecchio, dipendente..." oninput="render()"></div>
-      <div class="filters" id="chips">
-        <div class="chip active" data-f="all" onclick="setFilter(this)">Tutti</div>
-        <div class="chip" data-f="exp" onclick="setFilter(this)">Scaduti</div>
-        <div class="chip" data-f="soon" onclick="setFilter(this)">In scadenza</div>
-        <div class="chip" data-f="ok" onclick="setFilter(this)">In regola</div>
-        <div class="chip" data-f="cat-Apparecchi" onclick="setFilter(this)">Apparecchi</div>
-        <div class="chip" data-f="cat-Azienda" onclick="setFilter(this)">Azienda</div>
-        <div class="chip" data-f="cat-Personale" onclick="setFilter(this)">Personale</div>
-        <div class="chip" data-f="cat-Altro" onclick="setFilter(this)">Altro</div>
-      </div>
+      <div class="filters" id="chips"></div>
       <div class="col-head"><span></span><span>Documento</span><span style="text-align:right;">Stato</span></div>
       <div id="rows"></div>
       <div class="legend">
@@ -237,7 +240,7 @@
     <label>Nome documento <span class="req">*</span></label>
     <input type="text" id="f-name" placeholder="Es. Nulla osta di esercizio">
     <label>Categoria <span class="req">*</span></label>
-    <select id="f-cat"><option>Apparecchi</option><option>Azienda</option><option>Personale</option><option>Altro</option></select>
+    <select id="f-cat" onchange="onCatChange(this)"></select>
     <label>Riferimento</label>
     <input type="text" id="f-ref" placeholder="Es. Apparecchio H00620166XJ / Arsen / Sede principale">
     <label>Tipo / Note</label>
@@ -272,6 +275,14 @@
       <button class="save-y" onclick="saveSettings()">Salva</button>
     </div>
     <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
+    <label>Categorie documenti</label>
+    <p class="hint" style="margin-top:-2px;margin-bottom:10px;">Aggiungi, rinomina, riordina o elimina le categorie usate per organizzare i documenti.</p>
+    <div id="catList"></div>
+    <div class="cat-row">
+      <input type="text" id="newCatName" placeholder="Nuova categoria" maxlength="30" onkeydown="if(event.key==='Enter')addCategory()">
+      <button class="cat-add-btn" onclick="addCategory()" title="Aggiungi categoria">&#10133;</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
     <button class="ba-del" style="width:100%;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;" onclick="wipeAll()">Cancella tutti i dati</button>
   </div>
 </div>
@@ -281,11 +292,17 @@
 <script>
 /* ============ storage ============ */
 const LS_DOCS='bbm_doc_v1', LS_SET='bbm_set_v1';
-let docs=[], settings={soonDays:30}, filter='all', editId=null, pendingFile=null;
+const DEFAULT_CATS=['Apparecchi','Azienda','Personale','Altro'];
+let docs=[], settings={soonDays:30,categories:DEFAULT_CATS.slice()}, filter='all', editId=null, pendingFile=null;
 
 function loadAll(){
   try{docs=JSON.parse(localStorage.getItem(LS_DOCS))||[];}catch(e){docs=[];}
-  try{settings=Object.assign({soonDays:30},JSON.parse(localStorage.getItem(LS_SET))||{});}catch(e){settings={soonDays:30};}
+  try{settings=Object.assign({soonDays:30,categories:DEFAULT_CATS.slice()},JSON.parse(localStorage.getItem(LS_SET))||{});}catch(e){settings={soonDays:30,categories:DEFAULT_CATS.slice()};}
+  if(!Array.isArray(settings.categories)||!settings.categories.length)settings.categories=DEFAULT_CATS.slice();
+  reconcileCategories();
+}
+function reconcileCategories(){
+  docs.forEach(d=>{if(d.cat&&!settings.categories.includes(d.cat))settings.categories.push(d.cat);});
 }
 function saveDocs(){localStorage.setItem(LS_DOCS,JSON.stringify(docs));}
 function saveSet(){localStorage.setItem(LS_SET,JSON.stringify(settings));}
@@ -357,13 +374,21 @@ function render(){
     return `<div class="row" onclick="openDrawer('${d.id}')">
       <span class="sdot ${st}"></span>
       <div class="doc"><div class="name">${esc(d.n)} ${d.hasFile?'<span class="clip">&#128206;</span>':''}</div>
-        <div class="meta"><span class="cat">${d.cat}</span> ${esc(d.ref||'')}</div></div>
+        <div class="meta"><span class="cat">${esc(d.cat)}</span> ${esc(d.ref||'')}</div></div>
       <div class="status"><span class="badge ${st}">${stTxt[st]}</span><span class="date">${fmt(d.scad)}</span></div>
     </div>`;}).join('');
 }
 function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 /* ============ filters ============ */
+function renderChips(){
+  const box=document.getElementById('chips');
+  const base=[['all','Tutti'],['exp','Scaduti'],['soon','In scadenza'],['ok','In regola']];
+  let html=base.map(([f,l])=>`<div class="chip${filter===f?' active':''}" data-f="${f}" onclick="setFilter(this)">${l}</div>`).join('');
+  html+=settings.categories.map(c=>{const f='cat-'+c;
+    return `<div class="chip${filter===f?' active':''}" data-f="${esc(f)}" onclick="setFilter(this)">${esc(c)}</div>`;}).join('');
+  box.innerHTML=html;
+}
 function setFilter(el){document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');filter=el.dataset.f;render();}
 function quickFilter(f){filter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.f===f));render();}
 function resetAll(){document.getElementById('q').value='';filter='all';
@@ -380,14 +405,31 @@ function openForm(id){
   document.getElementById('f-file').value='';
   if(id){const d=docs.find(x=>x.id===id);document.getElementById('f-title').textContent='Modifica documento';
     document.getElementById('f-id').value=d.id;document.getElementById('f-name').value=d.n;
-    document.getElementById('f-cat').value=d.cat;document.getElementById('f-ref').value=d.ref||'';
+    populateCatSelect(d.cat);document.getElementById('f-ref').value=d.ref||'';
     document.getElementById('f-note').value=d.note||'';document.getElementById('f-scad').value=d.scad;
     document.getElementById('f-warn').value=d.warn||'';
     document.getElementById('f-fname').textContent=d.hasFile?(d.fileName||'file allegato'):'Nessun file';
   }else{document.getElementById('f-title').textContent='Nuovo documento';
     ['f-id','f-name','f-ref','f-note','f-scad','f-warn'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('f-cat').value='Apparecchi';document.getElementById('f-fname').textContent='Nessun file';}
+    populateCatSelect();document.getElementById('f-fname').textContent='Nessun file';}
   closeAll();show('formSheet');
+}
+function populateCatSelect(selected){
+  const sel=document.getElementById('f-cat');
+  sel.innerHTML=settings.categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')
+    +'<option value="__new__">&#10133; Nuova categoria…</option>';
+  sel.value=(selected&&settings.categories.includes(selected))?selected:settings.categories[0];
+}
+function onCatChange(sel){
+  if(sel.value!=='__new__')return;
+  const name=(prompt('Nome nuova categoria:')||'').trim();
+  if(name&&!settings.categories.some(c=>c.toLowerCase()===name.toLowerCase())){
+    settings.categories.push(name);saveSet();renderChips();populateCatSelect(name);
+  }else if(name){
+    populateCatSelect(name);
+  }else{
+    populateCatSelect(settings.categories[0]);
+  }
 }
 function onFilePick(inp){const f=inp.files[0];if(!f){pendingFile=null;return;}pendingFile=f;document.getElementById('f-fname').textContent=f.name;}
 async function saveDoc(){
@@ -398,7 +440,9 @@ async function saveDoc(){
   const id=document.getElementById('f-id').value||('d'+Date.now());
   let rec=docs.find(x=>x.id===id);
   const warn=parseInt(document.getElementById('f-warn').value)||null;
-  const data={id,n,cat:document.getElementById('f-cat').value,ref:document.getElementById('f-ref').value.trim(),
+  let cat=document.getElementById('f-cat').value;
+  if(cat==='__new__'||!cat)cat=settings.categories[0];
+  const data={id,n,cat,ref:document.getElementById('f-ref').value.trim(),
     note:document.getElementById('f-note').value.trim(),scad,warn,
     hasFile:rec?rec.hasFile:false,fileName:rec?rec.fileName:''};
   if(pendingFile){try{await putFile(id,pendingFile,pendingFile.name,pendingFile.type);data.hasFile=true;data.fileName=pendingFile.name;}catch(e){toast('Allegato non salvato');}}
@@ -431,10 +475,64 @@ async function removeDoc(id){if(!confirm('Eliminare questo documento?'))return;
   await delFile(id);docs=docs.filter(x=>x.id!==id);saveDocs();render();closeAll();toast('Documento eliminato');}
 
 /* ============ settings ============ */
-function openSettings(){document.getElementById('s-soon').value=settings.soonDays;closeAll();show('setSheet');}
+function openSettings(){document.getElementById('s-soon').value=settings.soonDays;renderCatList();closeAll();show('setSheet');}
 function saveSettings(){const v=parseInt(document.getElementById('s-soon').value)||30;settings.soonDays=v;saveSet();render();closeAll();toast('Impostazioni salvate');}
 async function wipeAll(){if(!confirm('Cancellare TUTTI i documenti e gli allegati? Operazione irreversibile.'))return;
   for(const d of docs){await delFile(d.id);}docs=[];saveDocs();render();closeAll();toast('Tutti i dati cancellati');}
+
+/* ============ categories ============ */
+function renderCatList(){
+  const box=document.getElementById('catList');
+  box.innerHTML=settings.categories.map((c,i)=>`
+    <div class="cat-row">
+      <div class="cat-arrows">
+        <button onclick="moveCategory(${i},-1)" ${i===0?'disabled':''} title="Sposta su">&#9650;</button>
+        <button onclick="moveCategory(${i},1)" ${i===settings.categories.length-1?'disabled':''} title="Sposta giù">&#9660;</button>
+      </div>
+      <input type="text" value="${esc(c)}" maxlength="30" onblur="renameCategory(${i},this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <button class="cat-del-btn" onclick="deleteCategory(${i})" title="Elimina categoria">&#128465;</button>
+    </div>`).join('');
+}
+function addCategory(){
+  const inp=document.getElementById('newCatName');
+  const name=inp.value.trim();
+  if(!name){toast('Inserisci un nome');return;}
+  if(settings.categories.some(c=>c.toLowerCase()===name.toLowerCase())){toast('Categoria già esistente');return;}
+  settings.categories.push(name);saveSet();inp.value='';
+  renderChips();renderCatList();toast('Categoria aggiunta');
+}
+function renameCategory(idx,inputEl){
+  const oldName=settings.categories[idx];
+  const newName=inputEl.value.trim();
+  if(!newName){inputEl.value=oldName;return;}
+  if(newName===oldName)return;
+  if(settings.categories.some((c,i)=>i!==idx&&c.toLowerCase()===newName.toLowerCase())){
+    toast('Categoria già esistente');inputEl.value=oldName;return;
+  }
+  settings.categories[idx]=newName;
+  docs.forEach(d=>{if(d.cat===oldName)d.cat=newName;});
+  if(filter==='cat-'+oldName)filter='cat-'+newName;
+  saveSet();saveDocs();renderChips();renderCatList();render();toast('Categoria rinominata');
+}
+function moveCategory(idx,dir){
+  const j=idx+dir;
+  if(j<0||j>=settings.categories.length)return;
+  [settings.categories[idx],settings.categories[j]]=[settings.categories[j],settings.categories[idx]];
+  saveSet();renderChips();renderCatList();
+}
+function deleteCategory(idx){
+  if(settings.categories.length<=1){toast('Deve restare almeno una categoria');return;}
+  const name=settings.categories[idx];
+  const used=docs.filter(d=>d.cat===name).length;
+  let msg=`Eliminare la categoria "${name}"?`;
+  if(used)msg+=` ${used} documento/i verranno spostati in un'altra categoria.`;
+  if(!confirm(msg))return;
+  settings.categories.splice(idx,1);
+  const fallback=settings.categories[0];
+  docs.forEach(d=>{if(d.cat===name)d.cat=fallback;});
+  if(filter==='cat-'+name)filter='all';
+  saveSet();saveDocs();renderChips();renderCatList();render();toast('Categoria eliminata');
+}
 
 /* ============ backup ============ */
 function exportData(){
@@ -445,7 +543,9 @@ function exportData(){
 }
 function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{try{const j=JSON.parse(r.result);if(!Array.isArray(j.docs))throw 0;
-    docs=j.docs;if(j.settings)settings=Object.assign(settings,j.settings);saveDocs();saveSet();render();toast('Dati ripristinati');
+    docs=j.docs;if(j.settings)settings=Object.assign(settings,j.settings);
+    if(!Array.isArray(settings.categories)||!settings.categories.length)settings.categories=DEFAULT_CATS.slice();
+    reconcileCategories();saveDocs();saveSet();renderChips();render();toast('Dati ripristinati');
   }catch(e){toast('File di backup non valido');}inp.value='';};r.readAsText(f);}
 
 /* ============ samples ============ */
@@ -474,7 +574,7 @@ function loadSamples(){
 let tT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
 
 /* ============ init ============ */
-loadAll();setClock();setInterval(setClock,30000);render();
+loadAll();setClock();setInterval(setClock,30000);renderChips();render();
 </script>
 </body>
 </html>
