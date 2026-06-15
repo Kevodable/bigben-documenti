@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Big Ben Matic · Documentazione & Scadenze</title>
+<style>
+  :root{
+    --steel:#335f7d; --steel-dark:#2a4f68;
+    --burgundy:#9b3b3b; --pink-bg:#f8e3e3;
+    --bg:#eef0f3; --card:#ffffff; --ink:#2b3a47; --muted:#6b7783; --line:#e4e8ec;
+    --green:#1f7a44; --green-bg:#e3f5e9;
+    --amber:#9a6b1a; --amber-bg:#fdf0d9;
+    --red:#b02a2a;   --red-bg:#fbe2e2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{overscroll-behavior-y:none;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:90px;}
+  .wrap{max-width:760px;margin:0 auto;}
+
+  /* top bar */
+  .topbar{display:flex;align-items:center;gap:12px;padding:13px 16px;
+    background:linear-gradient(120deg,#1c2f96 0%,#2a3fc4 45%,#3346d6 100%);color:#fff;
+    position:sticky;top:0;z-index:30;}
+  .burger{background:rgba(255,255,255,.16);border:none;color:#fff;width:42px;height:38px;border-radius:8px;
+    font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .topbar .clock{font-weight:700;font-size:18px;}
+  .topbar .user{display:flex;align-items:center;gap:6px;font-weight:600;font-size:15px;margin-left:auto;}
+  .topbar .dot{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.25);
+    display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .flag{width:30px;height:21px;border-radius:3px;overflow:hidden;display:flex;flex-shrink:0;box-shadow:0 0 0 1px rgba(255,255,255,.35);}
+  .flag span{flex:1;}.flag .g{background:#009246;}.flag .w{background:#fff;}.flag .r{background:#ce2b37;}
+
+  .pad{padding:16px;}
+  .card{background:var(--card);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,40,60,.07);margin-bottom:18px;}
+  .card-head{background:var(--steel);color:#fff;text-align:center;font-size:19px;font-weight:600;padding:15px;}
+  .card-body{padding:18px 16px;}
+  .upload-hint{text-align:center;color:var(--muted);font-size:15px;line-height:1.45;margin-bottom:15px;}
+  .btn-primary{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:var(--steel);
+    color:#fff;border:none;border-radius:10px;padding:15px;font-size:16px;font-weight:600;cursor:pointer;transition:background .15s;}
+  .btn-primary:hover{background:var(--steel-dark);}
+  .mini-actions{display:flex;gap:8px;margin-top:12px;}
+  .mini-actions button{flex:1;background:#f3f5f7;border:1px solid #e4e8ec;border-radius:9px;padding:11px 6px;
+    font-size:13px;font-weight:600;color:#52616d;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .mini-actions button:hover{background:#eaeef1;}
+
+  /* kpi */
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+  .kpi{background:#fff;border-radius:12px;padding:14px 8px;text-align:center;box-shadow:0 1px 3px rgba(20,40,60,.06);cursor:pointer;}
+  .kpi .n{font-size:26px;font-weight:800;line-height:1;}
+  .kpi .l{font-size:11.5px;color:var(--muted);margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+  .kpi.red .n{color:var(--red);}.kpi.amber .n{color:var(--amber);}.kpi.green .n{color:var(--green);}
+
+  /* alert */
+  .alert{background:var(--pink-bg);border-radius:14px;margin-bottom:18px;overflow:hidden;}
+  .alert-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;color:var(--burgundy);
+    font-weight:700;font-size:15px;letter-spacing:.4px;cursor:pointer;}
+  .alert-head .chev{transform:rotate(90deg);transition:transform .2s;}
+  .alert.closed .chev{transform:rotate(0deg);}
+  .alert-list{padding:0 14px 8px;}
+  .alert.closed .alert-list{display:none;}
+  .alert-item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:10px;padding:11px 14px;margin-bottom:10px;}
+  .alert-item .when{font-size:11px;font-weight:700;text-align:center;line-height:1.1;min-width:42px;color:var(--burgundy);}
+  .alert-item .when b{display:block;font-size:17px;}
+  .alert-item .info{flex:1;min-width:0;}
+  .alert-item .info .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .alert-item .info .s{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .section-title{font-size:28px;font-weight:800;color:#28333d;letter-spacing:.5px;margin:6px 2px 14px;}
+
+  .tbl{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,40,60,.07);}
+  .tbl-top{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:3px solid #f0f2f5;}
+  .tbl-top .count{font-size:16px;color:#3a4753;}
+  .tbl-top .count b{color:#1f2933;}
+  .tbl-top .actions{margin-left:auto;display:flex;gap:8px;}
+  .pill-btn{display:flex;align-items:center;gap:6px;background:#f4f6f8;border:1px solid #e3e7eb;border-radius:9px;
+    padding:9px 13px;font-size:14px;color:#3a4753;cursor:pointer;font-weight:500;}
+  .pill-btn:hover{background:#eaeef1;}
+  .search{padding:12px 16px 4px;}
+  .search input{width:100%;border:1px solid #dfe4e8;border-radius:9px;padding:11px 14px;font-size:15px;outline:none;}
+  .search input:focus{border-color:var(--steel);}
+  .filters{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;}
+  .chip{border:1px solid #dfe4e8;background:#fff;border-radius:20px;padding:8px 15px;font-size:13px;font-weight:600;
+    color:#5a6772;cursor:pointer;white-space:nowrap;transition:all .12s;}
+  .chip.active{background:var(--steel);border-color:var(--steel);color:#fff;}
+  .chip .badge{font-weight:700;margin-left:4px;opacity:.85;}
+
+  .col-head{display:grid;grid-template-columns:12px 1fr 100px;gap:12px;align-items:center;padding:12px 16px;
+    border-bottom:2px solid #eef1f4;font-size:12px;font-weight:700;color:#7a8893;text-transform:uppercase;letter-spacing:.3px;}
+  .row{display:grid;grid-template-columns:12px 1fr 100px;gap:12px;align-items:center;padding:14px 16px;
+    border-bottom:1px solid #f0f3f5;cursor:pointer;transition:background .1s;}
+  .row:hover{background:#fafbfc;}.row:last-child{border-bottom:none;}
+  .sdot{width:10px;height:10px;border-radius:50%;}
+  .sdot.ok{background:var(--green);}.sdot.soon{background:var(--amber);}.sdot.exp{background:var(--red);}
+  .doc .name{font-weight:600;font-size:15px;color:#26323d;line-height:1.25;display:flex;align-items:center;gap:6px;}
+  .doc .clip{font-size:12px;color:#9aa6b1;}
+  .doc .meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .doc .meta .cat{background:#eef2f5;color:#54636f;border-radius:5px;padding:1px 7px;font-weight:600;}
+  .status{justify-self:end;text-align:center;}
+  .badge{display:inline-block;border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;white-space:nowrap;}
+  .badge.ok{background:var(--green-bg);color:var(--green);}
+  .badge.soon{background:var(--amber-bg);color:var(--amber);}
+  .badge.exp{background:var(--red-bg);color:var(--red);}
+  .status .date{display:block;font-size:11px;color:var(--muted);margin-top:4px;}
+  .empty{padding:36px 22px;text-align:center;color:var(--muted);font-size:15px;line-height:1.5;}
+  .empty button{margin-top:14px;background:var(--steel);color:#fff;border:none;border-radius:9px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;}
+  .legend{display:flex;justify-content:center;gap:16px;padding:14px;color:var(--muted);font-size:11.5px;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:6px;}.legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  /* FAB */
+  .fab{position:fixed;right:max(16px,calc(50% - 380px + 16px));bottom:22px;z-index:35;background:var(--steel);
+    color:#fff;border:none;width:58px;height:58px;border-radius:50%;font-size:30px;line-height:1;cursor:pointer;
+    box-shadow:0 6px 18px rgba(40,70,100,.4);display:flex;align-items:center;justify-content:center;}
+  .fab:active{transform:scale(.94);}
+
+  /* overlay / drawer / modal */
+  .overlay{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:40;display:none;}
+  .overlay.show{display:block;}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fff;border-radius:18px 18px 0 0;
+    transform:translateY(100%);transition:transform .25s ease;max-width:760px;margin:0 auto;max-height:90vh;overflow-y:auto;}
+  .sheet.show{transform:translateY(0);}
+  .sheet-head{background:var(--steel);color:#fff;padding:17px 20px;font-size:18px;font-weight:600;position:sticky;top:0;
+    display:flex;justify-content:space-between;align-items:center;z-index:2;}
+  .sheet-head .x{background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;}
+  .sheet-body{padding:20px;}
+
+  .field{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:15px;}
+  .field .k{color:var(--muted);}.field .v{font-weight:600;text-align:right;}
+  .drawer-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+  .drawer-actions button{flex:1;min-width:120px;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:600;cursor:pointer;}
+  .ba-1{background:var(--steel);color:#fff;}.ba-2{background:#f1f4f6;color:#3a4753;}
+  .ba-del{background:var(--red-bg);color:var(--red);}
+
+  /* form */
+  label{display:block;font-size:13px;font-weight:600;color:#52616d;margin:14px 0 6px;}
+  input[type=text],input[type=date],input[type=number],select{
+    width:100%;border:1px solid #dfe4e8;border-radius:9px;padding:12px 13px;font-size:16px;outline:none;background:#fff;color:var(--ink);}
+  input:focus,select:focus{border-color:var(--steel);}
+  .file-pick{display:flex;align-items:center;gap:10px;}
+  .file-pick label.btn{flex:0 0 auto;background:#f1f4f6;border:1px solid #dfe4e8;border-radius:9px;padding:11px 14px;font-size:14px;
+    margin:0;cursor:pointer;font-weight:600;color:#3a4753;}
+  .file-pick .fname{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .req{color:var(--red);}
+  .form-save{display:flex;gap:10px;margin-top:22px;}
+  .form-save button{flex:1;padding:14px;border-radius:10px;border:none;font-size:16px;font-weight:600;cursor:pointer;}
+  .save-y{background:var(--steel);color:#fff;}.save-n{background:#f1f4f6;color:#3a4753;}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px;}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#22303c;color:#fff;
+    padding:13px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:80;opacity:0;pointer-events:none;transition:all .25s;box-shadow:0 6px 20px rgba(0,0,0,.3);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="burger">&#9776;</button>
+    <span class="clock" id="clock">00:00</span>
+    <div class="user"><span class="dot">&#128100;</span> kevin <span style="font-size:11px;opacity:.8;">&#9662;</span></div>
+    <div class="flag"><span class="g"></span><span class="w"></span><span class="r"></span></div>
+  </div>
+
+  <div class="pad">
+    <div class="card">
+      <div class="card-head">Documentazione &amp; Scadenze</div>
+      <div class="card-body">
+        <p class="upload-hint">Registra i documenti aziendali, degli apparecchi e del personale. Lo stato si aggiorna da solo in base alla data di scadenza.</p>
+        <button class="btn-primary" onclick="openForm()">&#10133;&nbsp; Aggiungi documento</button>
+        <div class="mini-actions">
+          <button onclick="exportData()">&#11015;&nbsp; Backup</button>
+          <button onclick="document.getElementById('importFile').click()">&#11014;&nbsp; Ripristina</button>
+          <button onclick="openSettings()">&#9881;&nbsp; Impostazioni</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this)">
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi red" onclick="quickFilter('exp')"><div class="n" id="k-exp">0</div><div class="l">Scadute</div></div>
+      <div class="kpi amber" onclick="quickFilter('soon')"><div class="n" id="k-soon">0</div><div class="l">In scadenza</div></div>
+      <div class="kpi green" onclick="quickFilter('ok')"><div class="n" id="k-ok">0</div><div class="l">In regola</div></div>
+    </div>
+
+    <div class="alert" id="alert">
+      <div class="alert-head" onclick="document.getElementById('alert').classList.toggle('closed')">
+        <span>PROSSIME SCADENZE</span><span class="chev">&#10095;</span>
+      </div>
+      <div class="alert-list" id="alertList"></div>
+    </div>
+
+    <div class="section-title">ELENCO DOCUMENTI</div>
+
+    <div class="tbl">
+      <div class="tbl-top">
+        <div class="count">Mostra <b id="shown">0</b> di <b id="total">0</b> documenti.</div>
+        <div class="actions"><button class="pill-btn" onclick="resetAll()">&#8635; Reset</button></div>
+      </div>
+      <div class="search"><input id="q" type="text" placeholder="Cerca documento, apparecchio, dipendente..." oninput="render()"></div>
+      <div class="filters" id="chips">
+        <div class="chip active" data-f="all" onclick="setFilter(this)">Tutti</div>
+        <div class="chip" data-f="exp" onclick="setFilter(this)">Scaduti</div>
+        <div class="chip" data-f="soon" onclick="setFilter(this)">In scadenza</div>
+        <div class="chip" data-f="ok" onclick="setFilter(this)">In regola</div>
+        <div class="chip" data-f="cat-Apparecchi" onclick="setFilter(this)">Apparecchi</div>
+        <div class="chip" data-f="cat-Azienda" onclick="setFilter(this)">Azienda</div>
+        <div class="chip" data-f="cat-Personale" onclick="setFilter(this)">Personale</div>
+        <div class="chip" data-f="cat-Altro" onclick="setFilter(this)">Altro</div>
+      </div>
+      <div class="col-head"><span></span><span>Documento</span><span style="text-align:right;">Stato</span></div>
+      <div id="rows"></div>
+      <div class="legend">
+        <span><i style="background:var(--green);"></i> In regola</span>
+        <span><i style="background:var(--amber);"></i> In scadenza</span>
+        <span><i style="background:var(--red);"></i> Scaduto</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="openForm()">&#43;</button>
+
+<!-- overlay -->
+<div class="overlay" id="ov" onclick="closeAll()"></div>
+
+<!-- detail drawer -->
+<div class="sheet" id="drawer">
+  <div class="sheet-head"><span id="d-title">Documento</span><button class="x" onclick="closeAll()">&times;</button></div>
+  <div class="sheet-body" id="d-body"></div>
+</div>
+
+<!-- form -->
+<div class="sheet" id="formSheet">
+  <div class="sheet-head"><span id="f-title">Nuovo documento</span><button class="x" onclick="closeAll()">&times;</button></div>
+  <div class="sheet-body">
+    <input type="hidden" id="f-id">
+    <label>Nome documento <span class="req">*</span></label>
+    <input type="text" id="f-name" placeholder="Es. Nulla osta di esercizio">
+    <label>Categoria <span class="req">*</span></label>
+    <select id="f-cat"><option>Apparecchi</option><option>Azienda</option><option>Personale</option><option>Altro</option></select>
+    <label>Riferimento</label>
+    <input type="text" id="f-ref" placeholder="Es. Apparecchio H00620166XJ / Arsen / Sede principale">
+    <label>Tipo / Note</label>
+    <input type="text" id="f-note" placeholder="Es. comma 7 · rinnovo annuale">
+    <label>Data di scadenza <span class="req">*</span></label>
+    <input type="date" id="f-scad">
+    <label>Allegato (PDF o immagine)</label>
+    <div class="file-pick">
+      <label class="btn" for="f-file">Scegli file</label>
+      <input type="file" id="f-file" accept="application/pdf,image/*" style="display:none" onchange="onFilePick(this)">
+      <span class="fname" id="f-fname">Nessun file</span>
+    </div>
+    <p class="hint">Il file resta solo su questo dispositivo (non viene caricato online).</p>
+    <label>Promemoria personalizzato (giorni prima)</label>
+    <input type="number" id="f-warn" min="1" placeholder="Lascia vuoto per usare l'impostazione globale">
+    <div class="form-save">
+      <button class="save-n" onclick="closeAll()">Annulla</button>
+      <button class="save-y" onclick="saveDoc()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="sheet" id="setSheet">
+  <div class="sheet-head"><span>Impostazioni</span><button class="x" onclick="closeAll()">&times;</button></div>
+  <div class="sheet-body">
+    <label>Soglia "in scadenza" (giorni prima)</label>
+    <input type="number" id="s-soon" min="1" value="30">
+    <p class="hint">I documenti entro questi giorni dalla scadenza vengono segnalati in giallo. Default: 30.</p>
+    <div class="form-save">
+      <button class="save-n" onclick="closeAll()">Chiudi</button>
+      <button class="save-y" onclick="saveSettings()">Salva</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
+    <button class="ba-del" style="width:100%;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;" onclick="wipeAll()">Cancella tutti i dati</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ storage ============ */
+const LS_DOCS='bbm_doc_v1', LS_SET='bbm_set_v1';
+let docs=[], settings={soonDays:30}, filter='all', editId=null, pendingFile=null;
+
+function loadAll(){
+  try{docs=JSON.parse(localStorage.getItem(LS_DOCS))||[];}catch(e){docs=[];}
+  try{settings=Object.assign({soonDays:30},JSON.parse(localStorage.getItem(LS_SET))||{});}catch(e){settings={soonDays:30};}
+}
+function saveDocs(){localStorage.setItem(LS_DOCS,JSON.stringify(docs));}
+function saveSet(){localStorage.setItem(LS_SET,JSON.stringify(settings));}
+
+/* ============ IndexedDB for file blobs ============ */
+let _db=null;
+function db(){return new Promise((res,rej)=>{
+  if(_db)return res(_db);
+  const r=indexedDB.open('bbm_files',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('files');
+  r.onsuccess=()=>{_db=r.result;res(_db);};
+  r.onerror=()=>rej(r.error);
+});}
+async function putFile(id,blob,name,type){const d=await db();return new Promise((res,rej)=>{
+  const tx=d.transaction('files','readwrite');tx.objectStore('files').put({blob,name,type},id);
+  tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
+async function getFile(id){const d=await db();return new Promise((res)=>{
+  const tx=d.transaction('files','readonly');const rq=tx.objectStore('files').get(id);
+  rq.onsuccess=()=>res(rq.result||null);rq.onerror=()=>res(null);});}
+async function delFile(id){const d=await db();return new Promise((res)=>{
+  const tx=d.transaction('files','readwrite');tx.objectStore('files').delete(id);tx.oncomplete=res;tx.onerror=res;});}
+
+/* ============ date utils ============ */
+function todayMid(){const t=new Date();t.setHours(0,0,0,0);return t;}
+function daysUntil(iso){return Math.round((new Date(iso+'T00:00:00')-todayMid())/86400000);}
+function fmt(iso){if(!iso)return'';const[y,m,d]=iso.split('-');return `${d}/${m}/${y}`;}
+function statusOf(doc){const d=daysUntil(doc.scad);const warn=doc.warn||settings.soonDays;
+  if(d<0)return'exp';if(d<=warn)return'soon';return'ok';}
+function countdown(iso){const d=daysUntil(iso);
+  if(d<0)return`scaduto da ${-d} gg`;if(d===0)return'scade oggi';if(d===1)return'scade domani';return`tra ${d} gg`;}
+
+/* ============ render ============ */
+const stTxt={ok:'In regola',soon:'In scadenza',exp:'Scaduto'};
+function setClock(){const n=new Date();document.getElementById('clock').textContent=
+  String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+
+function renderKpis(){
+  let e=0,s=0,o=0;
+  docs.forEach(d=>{const st=statusOf(d);if(st==='exp')e++;else if(st==='soon')s++;else o++;});
+  document.getElementById('k-exp').textContent=e;
+  document.getElementById('k-soon').textContent=s;
+  document.getElementById('k-ok').textContent=o;
+}
+function renderAlert(){
+  const att=docs.filter(d=>statusOf(d)!=='ok').sort((a,b)=>a.scad.localeCompare(b.scad)).slice(0,5);
+  const box=document.getElementById('alertList'),wrap=document.getElementById('alert');
+  if(!att.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  box.innerHTML=att.map(d=>{const[Y,M,D]=d.scad.split('-');const mesi=['GEN','FEB','MAR','APR','MAG','GIU','LUG','AGO','SET','OTT','NOV','DIC'];
+    return `<div class="alert-item"><div class="when"><b>${D}</b>${mesi[+M-1]}</div>
+      <div class="info"><div class="t">${esc(d.n)}</div><div class="s">${esc(d.ref||d.cat)} · ${countdown(d.scad)}</div></div></div>`;}).join('');
+}
+function match(d){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  if(q){const hay=(d.n+' '+(d.ref||'')+' '+d.cat+' '+(d.note||'')).toLowerCase();if(!hay.includes(q))return false;}
+  if(filter==='all')return true;
+  if(filter.startsWith('cat-'))return d.cat===filter.slice(4);
+  return statusOf(d)===filter;
+}
+function render(){
+  document.getElementById('total').textContent=docs.length;
+  renderKpis();renderAlert();
+  const list=docs.filter(match).sort((a,b)=>a.scad.localeCompare(b.scad));
+  document.getElementById('shown').textContent=list.length;
+  const box=document.getElementById('rows');
+  if(!docs.length){box.innerHTML=`<div class="empty">Nessun documento ancora registrato.<br>Aggiungi il primo o carica alcuni esempi per provare.<br><button onclick="loadSamples()">Carica dati di esempio</button></div>`;return;}
+  if(!list.length){box.innerHTML='<div class="empty">Nessun documento corrisponde ai filtri.</div>';return;}
+  box.innerHTML=list.map(d=>{const st=statusOf(d);
+    return `<div class="row" onclick="openDrawer('${d.id}')">
+      <span class="sdot ${st}"></span>
+      <div class="doc"><div class="name">${esc(d.n)} ${d.hasFile?'<span class="clip">&#128206;</span>':''}</div>
+        <div class="meta"><span class="cat">${d.cat}</span> ${esc(d.ref||'')}</div></div>
+      <div class="status"><span class="badge ${st}">${stTxt[st]}</span><span class="date">${fmt(d.scad)}</span></div>
+    </div>`;}).join('');
+}
+function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ============ filters ============ */
+function setFilter(el){document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');filter=el.dataset.f;render();}
+function quickFilter(f){filter=f;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.f===f));render();}
+function resetAll(){document.getElementById('q').value='';filter='all';
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active',c.dataset.f==='all'));render();}
+
+/* ============ sheets ============ */
+function show(id){document.getElementById('ov').classList.add('show');document.getElementById(id).classList.add('show');}
+function closeAll(){document.getElementById('ov').classList.remove('show');
+  ['drawer','formSheet','setSheet'].forEach(i=>document.getElementById(i).classList.remove('show'));}
+
+/* ============ form ============ */
+function openForm(id){
+  editId=id||null;pendingFile=null;
+  document.getElementById('f-file').value='';
+  if(id){const d=docs.find(x=>x.id===id);document.getElementById('f-title').textContent='Modifica documento';
+    document.getElementById('f-id').value=d.id;document.getElementById('f-name').value=d.n;
+    document.getElementById('f-cat').value=d.cat;document.getElementById('f-ref').value=d.ref||'';
+    document.getElementById('f-note').value=d.note||'';document.getElementById('f-scad').value=d.scad;
+    document.getElementById('f-warn').value=d.warn||'';
+    document.getElementById('f-fname').textContent=d.hasFile?(d.fileName||'file allegato'):'Nessun file';
+  }else{document.getElementById('f-title').textContent='Nuovo documento';
+    ['f-id','f-name','f-ref','f-note','f-scad','f-warn'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('f-cat').value='Apparecchi';document.getElementById('f-fname').textContent='Nessun file';}
+  closeAll();show('formSheet');
+}
+function onFilePick(inp){const f=inp.files[0];if(!f){pendingFile=null;return;}pendingFile=f;document.getElementById('f-fname').textContent=f.name;}
+async function saveDoc(){
+  const n=document.getElementById('f-name').value.trim();
+  const scad=document.getElementById('f-scad').value;
+  if(!n){toast('Inserisci il nome');return;}
+  if(!scad){toast('Inserisci la data di scadenza');return;}
+  const id=document.getElementById('f-id').value||('d'+Date.now());
+  let rec=docs.find(x=>x.id===id);
+  const warn=parseInt(document.getElementById('f-warn').value)||null;
+  const data={id,n,cat:document.getElementById('f-cat').value,ref:document.getElementById('f-ref').value.trim(),
+    note:document.getElementById('f-note').value.trim(),scad,warn,
+    hasFile:rec?rec.hasFile:false,fileName:rec?rec.fileName:''};
+  if(pendingFile){try{await putFile(id,pendingFile,pendingFile.name,pendingFile.type);data.hasFile=true;data.fileName=pendingFile.name;}catch(e){toast('Allegato non salvato');}}
+  if(rec){Object.assign(rec,data);}else{docs.push(data);}
+  saveDocs();render();closeAll();toast(editId?'Documento aggiornato':'Documento aggiunto');
+}
+
+/* ============ drawer ============ */
+function openDrawer(id){
+  const d=docs.find(x=>x.id===id);if(!d)return;const st=statusOf(d);
+  document.getElementById('d-title').textContent=d.n;
+  document.getElementById('d-body').innerHTML=`
+    <div class="field"><span class="k">Stato</span><span class="v"><span class="badge ${st}">${stTxt[st]}</span></span></div>
+    <div class="field"><span class="k">Categoria</span><span class="v">${esc(d.cat)}</span></div>
+    <div class="field"><span class="k">Riferimento</span><span class="v">${esc(d.ref)||'—'}</span></div>
+    <div class="field"><span class="k">Tipo / Note</span><span class="v">${esc(d.note)||'—'}</span></div>
+    <div class="field"><span class="k">Scadenza</span><span class="v">${fmt(d.scad)}</span></div>
+    <div class="field"><span class="k">Tempistica</span><span class="v">${countdown(d.scad)}</span></div>
+    <div class="field"><span class="k">Allegato</span><span class="v">${d.hasFile?esc(d.fileName||'file')+' &#128206;':'—'}</span></div>
+    <div class="drawer-actions">
+      ${d.hasFile?`<button class="ba-1" onclick="openAttachment('${d.id}')">&#128194; Apri file</button>`:''}
+      <button class="ba-2" onclick="openForm('${d.id}')">&#9998; Modifica</button>
+      <button class="ba-del" onclick="removeDoc('${d.id}')">&#128465; Elimina</button>
+    </div>`;
+  closeAll();show('drawer');
+}
+async function openAttachment(id){const f=await getFile(id);if(!f){toast('File non trovato');return;}
+  const url=URL.createObjectURL(f.blob);window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),60000);}
+async function removeDoc(id){if(!confirm('Eliminare questo documento?'))return;
+  await delFile(id);docs=docs.filter(x=>x.id!==id);saveDocs();render();closeAll();toast('Documento eliminato');}
+
+/* ============ settings ============ */
+function openSettings(){document.getElementById('s-soon').value=settings.soonDays;closeAll();show('setSheet');}
+function saveSettings(){const v=parseInt(document.getElementById('s-soon').value)||30;settings.soonDays=v;saveSet();render();closeAll();toast('Impostazioni salvate');}
+async function wipeAll(){if(!confirm('Cancellare TUTTI i documenti e gli allegati? Operazione irreversibile.'))return;
+  for(const d of docs){await delFile(d.id);}docs=[];saveDocs();render();closeAll();toast('Tutti i dati cancellati');}
+
+/* ============ backup ============ */
+function exportData(){
+  const blob=new Blob([JSON.stringify({v:1,exported:new Date().toISOString(),settings,docs},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='backup-documenti-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('Backup scaricato (gli allegati restano sul dispositivo)');
+}
+function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const j=JSON.parse(r.result);if(!Array.isArray(j.docs))throw 0;
+    docs=j.docs;if(j.settings)settings=Object.assign(settings,j.settings);saveDocs();saveSet();render();toast('Dati ripristinati');
+  }catch(e){toast('File di backup non valido');}inp.value='';};r.readAsText(f);}
+
+/* ============ samples ============ */
+function isoOff(days){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+days);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function loadSamples(){
+  const s=[
+    ['Nulla osta di esercizio','Apparecchi','Apparecchio H00620166XJ','comma 7 · codice IUT',58],
+    ['Tassa concessione governativa','Apparecchi','Parco apparecchi comma 7','versamento annuale',184],
+    ['Collaudo pista go-kart','Apparecchi','Pista esterna','verifica strutturale',-36],
+    ['Licenza TULPS art. 86','Azienda','Big Ben Matic S.r.l.','pubblico esercizio',199],
+    ['DURC','Azienda','Big Ben Matic S.r.l.','regolarità contributiva (120 gg)',5],
+    ['Polizza RC generale','Azienda','Sede + corner','responsabilità civile',-14],
+    ['Verifica impianto messa a terra','Azienda','Sede principale','DPR 462/01 · biennale',13],
+    ['CPI prevenzione incendi','Azienda','Sede principale (VV.F.)','certificato VV.F.',273],
+    ['Contratto locazione corner','Azienda','Hotel · Progetto Aziende','leasing operativo',107],
+    ['HACCP','Azienda','Area bar / distributori','manuale autocontrollo',-54],
+    ['Visita medica · Arsen','Personale','Coordinatore sala','sorveglianza 81/08',20],
+    ['Formazione sicurezza · Jacopo','Personale','Macchinette esterne','D.Lgs 81/08',60],
+  ];
+  s.forEach((x,i)=>docs.push({id:'s'+Date.now()+i,n:x[0],cat:x[1],ref:x[2],note:x[3],scad:isoOff(x[4]),warn:null,hasFile:false,fileName:''}));
+  saveDocs();render();toast('Esempi caricati');
+}
+
+/* ============ toast ============ */
+let tT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ============ init ============ */
+loadAll();setClock();setInterval(setClock,30000);render();
+</script>
+</body>
+</html>
