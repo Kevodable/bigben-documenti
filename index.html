@@ -159,6 +159,20 @@
   .cat-del-btn{background:var(--red-bg);color:var(--red);}
   .cat-add-btn{background:var(--steel);color:#fff;}
 
+  /* toggle switch */
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;}
+  .toggle-row .td{font-size:14px;color:var(--ink);}
+  .tgl{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;}
+  .tgl input{opacity:0;width:0;height:0;position:absolute;}
+  .tgl-sl{position:absolute;inset:0;background:#c8d0d8;border-radius:26px;cursor:pointer;transition:background .2s;}
+  .tgl-sl::before{content:'';position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;
+    transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .tgl input:checked~.tgl-sl{background:var(--steel);}
+  .tgl input:checked~.tgl-sl::before{transform:translateX(20px);}
+  .tgl input:disabled~.tgl-sl{opacity:.45;cursor:default;}
+  .notif-hint{font-size:12px;margin-top:3px;min-height:16px;}
+  .notif-hint.ok{color:var(--green);}.notif-hint.warn{color:var(--amber);}.notif-hint.err{color:var(--red);}
+
   .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#22303c;color:#fff;
     padding:13px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:80;opacity:0;pointer-events:none;transition:all .25s;box-shadow:0 6px 20px rgba(0,0,0,.3);}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -182,6 +196,7 @@
         <div class="mini-actions">
           <button onclick="exportData()">&#11015;&nbsp; Backup</button>
           <button onclick="document.getElementById('importFile').click()">&#11014;&nbsp; Ripristina</button>
+          <button onclick="sendEmailSummary()">&#9993;&nbsp; Email</button>
           <button onclick="openSettings()">&#9881;&nbsp; Impostazioni</button>
         </div>
         <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this)">
@@ -275,6 +290,18 @@
       <button class="save-y" onclick="saveSettings()">Salva</button>
     </div>
     <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
+    <label>Notifiche browser</label>
+    <div class="toggle-row">
+      <span class="td">Avvisa quando l'app è aperta e ci sono scadenze</span>
+      <label class="tgl"><input type="checkbox" id="s-notif" onchange="saveNotifSetting(this)"><span class="tgl-sl"></span></label>
+    </div>
+    <p class="notif-hint" id="notif-hint"></p>
+    <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
+    <label>Email riepilogo scadenze</label>
+    <input type="text" id="s-email" placeholder="es. admin@bigbenmatic.it" inputmode="email">
+    <p class="hint">Inserisci il destinatario. Il pulsante "&#9993;&nbsp;Email" aprirà il tuo client di posta con l'elenco dei documenti scaduti e in scadenza già compilato.</p>
+    <button onclick="sendEmailSummary()" style="margin-top:12px;width:100%;padding:13px;background:var(--steel);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">&#9993;&nbsp; Invia riepilogo scadenze</button>
+    <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
     <label>Categorie documenti</label>
     <p class="hint" style="margin-top:-2px;margin-bottom:10px;">Aggiungi, rinomina, riordina o elimina le categorie usate per organizzare i documenti.</p>
     <div id="catList"></div>
@@ -293,11 +320,12 @@
 /* ============ storage ============ */
 const LS_DOCS='bbm_doc_v1', LS_SET='bbm_set_v1';
 const DEFAULT_CATS=['Apparecchi','Azienda','Personale','Altro'];
-let docs=[], settings={soonDays:30,categories:DEFAULT_CATS.slice()}, filter='all', editId=null, pendingFile=null;
+const DEF_SET={soonDays:30,categories:DEFAULT_CATS.slice(),notifEnabled:false,emailTo:''};
+let docs=[], settings=Object.assign({},DEF_SET), filter='all', editId=null, pendingFile=null;
 
 function loadAll(){
   try{docs=JSON.parse(localStorage.getItem(LS_DOCS))||[];}catch(e){docs=[];}
-  try{settings=Object.assign({soonDays:30,categories:DEFAULT_CATS.slice()},JSON.parse(localStorage.getItem(LS_SET))||{});}catch(e){settings={soonDays:30,categories:DEFAULT_CATS.slice()};}
+  try{settings=Object.assign({},DEF_SET,JSON.parse(localStorage.getItem(LS_SET))||{});}catch(e){settings=Object.assign({},DEF_SET);}
   if(!Array.isArray(settings.categories)||!settings.categories.length)settings.categories=DEFAULT_CATS.slice();
   reconcileCategories();
 }
@@ -475,10 +503,87 @@ async function removeDoc(id){if(!confirm('Eliminare questo documento?'))return;
   await delFile(id);docs=docs.filter(x=>x.id!==id);saveDocs();render();closeAll();toast('Documento eliminato');}
 
 /* ============ settings ============ */
-function openSettings(){document.getElementById('s-soon').value=settings.soonDays;renderCatList();closeAll();show('setSheet');}
-function saveSettings(){const v=parseInt(document.getElementById('s-soon').value)||30;settings.soonDays=v;saveSet();render();closeAll();toast('Impostazioni salvate');}
+function openSettings(){
+  document.getElementById('s-soon').value=settings.soonDays;
+  document.getElementById('s-email').value=settings.emailTo||'';
+  const notifOk='Notification' in window && Notification.permission==='granted';
+  document.getElementById('s-notif').checked=settings.notifEnabled&&notifOk;
+  document.getElementById('s-notif').disabled=('Notification' in window && Notification.permission==='denied')||!('Notification' in window);
+  updateNotifHint();
+  renderCatList();closeAll();show('setSheet');
+}
+function saveSettings(){
+  const v=parseInt(document.getElementById('s-soon').value)||30;
+  settings.soonDays=v;
+  settings.emailTo=document.getElementById('s-email').value.trim();
+  saveSet();render();closeAll();toast('Impostazioni salvate');
+}
 async function wipeAll(){if(!confirm('Cancellare TUTTI i documenti e gli allegati? Operazione irreversibile.'))return;
   for(const d of docs){await delFile(d.id);}docs=[];saveDocs();render();closeAll();toast('Tutti i dati cancellati');}
+
+/* ============ notifications ============ */
+function updateNotifHint(){
+  const el=document.getElementById('notif-hint');if(!el)return;
+  if(!('Notification' in window)){
+    el.textContent='Notifiche non supportate da questo browser.';el.className='notif-hint err';return;}
+  if(Notification.permission==='denied'){
+    el.textContent='Permesso negato. Modificalo nelle impostazioni del browser.';el.className='notif-hint err';return;}
+  if(settings.notifEnabled&&Notification.permission==='granted'){
+    el.textContent='Attive · ricevi un avviso ogni giorno in cui apri l\'app con scadenze in corso.';el.className='notif-hint ok';return;}
+  el.textContent='';el.className='notif-hint';
+}
+function saveNotifSetting(cb){
+  if(cb.checked&&'Notification' in window&&Notification.permission==='default'){
+    Notification.requestPermission().then(p=>{
+      settings.notifEnabled=p==='granted';
+      cb.checked=settings.notifEnabled;
+      saveSet();updateNotifHint();
+      if(settings.notifEnabled)checkAndNotify(true);
+    });return;
+  }
+  settings.notifEnabled=cb.checked&&'Notification' in window&&Notification.permission==='granted';
+  cb.checked=settings.notifEnabled;
+  saveSet();updateNotifHint();
+}
+function checkAndNotify(force){
+  if(!settings.notifEnabled)return;
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const today=new Date().toISOString().slice(0,10);
+  if(!force&&localStorage.getItem('bbm_notif_day')===today)return;
+  const exp=docs.filter(d=>statusOf(d)==='exp');
+  const soon=docs.filter(d=>statusOf(d)==='soon');
+  if(!exp.length&&!soon.length)return;
+  let body='';
+  if(exp.length)body+=`🔴 ${exp.length} scadut${exp.length===1?'o':'i'}: ${exp.slice(0,2).map(d=>d.n).join(', ')}${exp.length>2?' …':''}\n`;
+  if(soon.length)body+=`🟡 ${soon.length} in scadenza: ${soon.slice(0,2).map(d=>d.n).join(', ')}${soon.length>2?' …':''}`;
+  new Notification('Big Ben Matic · Scadenze documenti',{body:body.trim()});
+  localStorage.setItem('bbm_notif_day',today);
+}
+
+/* ============ email ============ */
+function sendEmailSummary(){
+  const urgent=docs.filter(d=>statusOf(d)!=='ok').sort((a,b)=>a.scad.localeCompare(b.scad));
+  if(!urgent.length){toast('Nessuna scadenza imminente o scaduta');return;}
+  const dateStr=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const subject=`Riepilogo scadenze documenti · Big Ben Matic · ${dateStr}`;
+  const exp=urgent.filter(d=>statusOf(d)==='exp');
+  const soon=urgent.filter(d=>statusOf(d)==='soon');
+  let body=`RIEPILOGO SCADENZE DOCUMENTI – Big Ben Matic\nData: ${dateStr}\n\n`;
+  if(exp.length){
+    body+=`== SCADUTI (${exp.length}) ==\n`;
+    exp.forEach(d=>{body+=`• ${d.n}${d.cat?' ['+d.cat+']':''}${d.ref?' – '+d.ref:''} → scaduto il ${fmt(d.scad)} (da ${-daysUntil(d.scad)} gg)\n`;});
+    body+='\n';
+  }
+  if(soon.length){
+    body+=`== IN SCADENZA (${soon.length}) ==\n`;
+    soon.forEach(d=>{body+=`• ${d.n}${d.cat?' ['+d.cat+']':''}${d.ref?' – '+d.ref:''} → scade il ${fmt(d.scad)} (${countdown(d.scad)})\n`;});
+  }
+  body+='\n--\nInviato da Big Ben Matic · Documentazione & Scadenze';
+  const to=settings.emailTo||'';
+  const a=document.createElement('a');
+  a.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  a.click();
+}
 
 /* ============ categories ============ */
 function renderCatList(){
@@ -575,6 +680,7 @@ let tT;function toast(m){const t=document.getElementById('toast');t.textContent=
 
 /* ============ init ============ */
 loadAll();setClock();setInterval(setClock,30000);renderChips();render();
+setTimeout(checkAndNotify,2000);setInterval(checkAndNotify,1800000);
 </script>
 </body>
 </html>
