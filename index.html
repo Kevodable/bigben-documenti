@@ -258,6 +258,8 @@
     <select id="f-cat" onchange="onCatChange(this)"></select>
     <label>Riferimento</label>
     <input type="text" id="f-ref" placeholder="Es. Apparecchio H00620166XJ / Arsen / Sede principale">
+    <label>Email responsabile</label>
+    <input type="text" id="f-email" placeholder="Es. arsen@bigbenmatic.it" inputmode="email">
     <label>Tipo / Note</label>
     <input type="text" id="f-note" placeholder="Es. comma 7 · rinnovo annuale">
     <label>Data di scadenza <span class="req">*</span></label>
@@ -297,11 +299,6 @@
     </div>
     <p class="notif-hint" id="notif-hint"></p>
     <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
-    <label>Email riepilogo scadenze</label>
-    <input type="text" id="s-email" placeholder="es. admin@bigbenmatic.it" inputmode="email">
-    <p class="hint">Inserisci il destinatario. Il pulsante "&#9993;&nbsp;Email" aprirà il tuo client di posta con l'elenco dei documenti scaduti e in scadenza già compilato.</p>
-    <button onclick="sendEmailSummary()" style="margin-top:12px;width:100%;padding:13px;background:var(--steel);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">&#9993;&nbsp; Invia riepilogo scadenze</button>
-    <hr style="border:none;border-top:1px solid var(--line);margin:22px 0;">
     <label>Categorie documenti</label>
     <p class="hint" style="margin-top:-2px;margin-bottom:10px;">Aggiungi, rinomina, riordina o elimina le categorie usate per organizzare i documenti.</p>
     <div id="catList"></div>
@@ -320,7 +317,7 @@
 /* ============ storage ============ */
 const LS_DOCS='bbm_doc_v1', LS_SET='bbm_set_v1';
 const DEFAULT_CATS=['Apparecchi','Azienda','Personale','Altro'];
-const DEF_SET={soonDays:30,categories:DEFAULT_CATS.slice(),notifEnabled:false,emailTo:''};
+const DEF_SET={soonDays:30,categories:DEFAULT_CATS.slice(),notifEnabled:false};
 let docs=[], settings=Object.assign({},DEF_SET), filter='all', editId=null, pendingFile=null;
 
 function loadAll(){
@@ -434,11 +431,12 @@ function openForm(id){
   if(id){const d=docs.find(x=>x.id===id);document.getElementById('f-title').textContent='Modifica documento';
     document.getElementById('f-id').value=d.id;document.getElementById('f-name').value=d.n;
     populateCatSelect(d.cat);document.getElementById('f-ref').value=d.ref||'';
+    document.getElementById('f-email').value=d.email||'';
     document.getElementById('f-note').value=d.note||'';document.getElementById('f-scad').value=d.scad;
     document.getElementById('f-warn').value=d.warn||'';
     document.getElementById('f-fname').textContent=d.hasFile?(d.fileName||'file allegato'):'Nessun file';
   }else{document.getElementById('f-title').textContent='Nuovo documento';
-    ['f-id','f-name','f-ref','f-note','f-scad','f-warn'].forEach(i=>document.getElementById(i).value='');
+    ['f-id','f-name','f-ref','f-email','f-note','f-scad','f-warn'].forEach(i=>document.getElementById(i).value='');
     populateCatSelect();document.getElementById('f-fname').textContent='Nessun file';}
   closeAll();show('formSheet');
 }
@@ -471,6 +469,7 @@ async function saveDoc(){
   let cat=document.getElementById('f-cat').value;
   if(cat==='__new__'||!cat)cat=settings.categories[0];
   const data={id,n,cat,ref:document.getElementById('f-ref').value.trim(),
+    email:document.getElementById('f-email').value.trim(),
     note:document.getElementById('f-note').value.trim(),scad,warn,
     hasFile:rec?rec.hasFile:false,fileName:rec?rec.fileName:''};
   if(pendingFile){try{await putFile(id,pendingFile,pendingFile.name,pendingFile.type);data.hasFile=true;data.fileName=pendingFile.name;}catch(e){toast('Allegato non salvato');}}
@@ -489,9 +488,11 @@ function openDrawer(id){
     <div class="field"><span class="k">Tipo / Note</span><span class="v">${esc(d.note)||'—'}</span></div>
     <div class="field"><span class="k">Scadenza</span><span class="v">${fmt(d.scad)}</span></div>
     <div class="field"><span class="k">Tempistica</span><span class="v">${countdown(d.scad)}</span></div>
+    <div class="field"><span class="k">Email responsabile</span><span class="v">${d.email?`<a href="mailto:${esc(d.email)}" style="color:var(--steel)">${esc(d.email)}</a>`:'—'}</span></div>
     <div class="field"><span class="k">Allegato</span><span class="v">${d.hasFile?esc(d.fileName||'file')+' &#128206;':'—'}</span></div>
     <div class="drawer-actions">
       ${d.hasFile?`<button class="ba-1" onclick="openAttachment('${d.id}')">&#128194; Apri file</button>`:''}
+      ${d.email?`<button class="ba-1" onclick="sendDocEmail('${d.id}')">&#9993; Promemoria</button>`:''}
       <button class="ba-2" onclick="openForm('${d.id}')">&#9998; Modifica</button>
       <button class="ba-del" onclick="removeDoc('${d.id}')">&#128465; Elimina</button>
     </div>`;
@@ -505,7 +506,6 @@ async function removeDoc(id){if(!confirm('Eliminare questo documento?'))return;
 /* ============ settings ============ */
 function openSettings(){
   document.getElementById('s-soon').value=settings.soonDays;
-  document.getElementById('s-email').value=settings.emailTo||'';
   const notifOk='Notification' in window && Notification.permission==='granted';
   document.getElementById('s-notif').checked=settings.notifEnabled&&notifOk;
   document.getElementById('s-notif').disabled=('Notification' in window && Notification.permission==='denied')||!('Notification' in window);
@@ -513,9 +513,7 @@ function openSettings(){
   renderCatList();closeAll();show('setSheet');
 }
 function saveSettings(){
-  const v=parseInt(document.getElementById('s-soon').value)||30;
-  settings.soonDays=v;
-  settings.emailTo=document.getElementById('s-email').value.trim();
+  settings.soonDays=parseInt(document.getElementById('s-soon').value)||30;
   saveSet();render();closeAll();toast('Impostazioni salvate');
 }
 async function wipeAll(){if(!confirm('Cancellare TUTTI i documenti e gli allegati? Operazione irreversibile.'))return;
@@ -578,10 +576,28 @@ function sendEmailSummary(){
     body+=`== IN SCADENZA (${soon.length}) ==\n`;
     soon.forEach(d=>{body+=`• ${d.n}${d.cat?' ['+d.cat+']':''}${d.ref?' – '+d.ref:''} → scade il ${fmt(d.scad)} (${countdown(d.scad)})\n`;});
   }
-  body+='\n--\nInviato da Big Ben Matic · Documentazione & Scadenze';
-  const to=settings.emailTo||'';
+  body+='\n--\nBig Ben Matic · Documentazione & Scadenze';
+  const emails=[...new Set(urgent.map(d=>d.email).filter(Boolean))];
   const a=document.createElement('a');
-  a.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  a.href=`mailto:${emails.map(encodeURIComponent).join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  a.click();
+}
+function sendDocEmail(id){
+  const d=docs.find(x=>x.id===id);if(!d||!d.email)return;
+  const st=statusOf(d);
+  const dateStr=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const subject=`Promemoria scadenza: ${d.n} · ${fmt(d.scad)}`;
+  let body=`Promemoria scadenza documento – Big Ben Matic\nData: ${dateStr}\n\n`;
+  body+=`Documento: ${d.n}\n`;
+  if(d.cat)body+=`Categoria: ${d.cat}\n`;
+  if(d.ref)body+=`Riferimento: ${d.ref}\n`;
+  if(d.note)body+=`Note: ${d.note}\n`;
+  body+=`Scadenza: ${fmt(d.scad)}`;
+  if(st==='exp')body+=` (scaduto da ${-daysUntil(d.scad)} giorni)`;
+  else body+=` (${countdown(d.scad)})`;
+  body+='\n\n--\nBig Ben Matic · Documentazione & Scadenze';
+  const a=document.createElement('a');
+  a.href=`mailto:${encodeURIComponent(d.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   a.click();
 }
 
