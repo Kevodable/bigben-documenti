@@ -5,6 +5,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -22,7 +23,9 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         prefs = PrefsManager(this)
         hideSystemBars()
+        KioskManager.syncAllowedPackages(this, prefs.getSelectedPackages())
 
         setContent {
             LauncherApp(prefs = prefs)
@@ -51,6 +55,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        KioskManager.engage(this)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -86,6 +91,7 @@ private fun LauncherApp(prefs: PrefsManager) {
     }
 
     LaunchedEffect(Unit) { refreshApps() }
+    LaunchedEffect(selectedPackages) { KioskManager.syncAllowedPackages(context, selectedPackages) }
 
     MaterialTheme(colorScheme = kidsColorScheme()) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -139,19 +145,18 @@ private fun HomeScreen(
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = onRequestSettings,
+                ),
         ) {
-            Text(
-                text = "I miei giochi",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .weight(1f)
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = onRequestSettings,
-                    ),
+            Image(
+                painter = painterResource(id = R.drawable.logo_fun_planet),
+                contentDescription = "Kids Fun Planet",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.height(90.dp),
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -159,7 +164,7 @@ private fun HomeScreen(
         if (games.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "Nessun gioco configurato.\nTieni premuto il titolo per aprire le impostazioni.",
+                    text = "Nessun gioco configurato.\nTieni premuto il logo per aprire le impostazioni.",
                     fontSize = 18.sp,
                     color = Color.Gray,
                 )
@@ -250,7 +255,9 @@ private fun SettingsScreen(
     onChangePin: (String) -> Unit,
     onDone: () -> Unit,
 ) {
+    val context = LocalContext.current
     var newPin by remember { mutableStateOf("") }
+    val kioskActive = remember { KioskManager.isDeviceOwner(context) }
 
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -258,6 +265,35 @@ private fun SettingsScreen(
             Button(onClick = onDone) { Text("Fatto") }
         }
         Spacer(Modifier.height(8.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = if (kioskActive) Color(0xFFE3F5E9) else Color(0xFFFDF0D9),
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.padding(12.dp)) {
+                Text(
+                    text = if (kioskActive) "Modalità Kiosk: ATTIVA" else "Modalità Kiosk: NON ATTIVA",
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = if (kioskActive)
+                        "L'app è bloccata a schermo intero: i bambini non possono uscire né aprire altre app."
+                    else
+                        "Per bloccare davvero l'uscita dall'app, configura questo tablet come dispositivo dedicato (vedi README.md, sezione Modalità Kiosk).",
+                    fontSize = 12.sp,
+                )
+                if (kioskActive) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = {
+                        (context as? android.app.Activity)?.let { KioskManager.release(it) }
+                    }) { Text("Sblocca temporaneamente") }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         Text("Scegli quali giochi mostrare ai bambini:", color = Color.Gray)
         Spacer(Modifier.height(8.dp))
 

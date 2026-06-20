@@ -1,17 +1,39 @@
-# Giochi del Parco — Launcher Android per bambini
+# Kids Fun Planet — Launcher Android per bambini
 
-App Android pensata per essere installata su un monitor/tablet Android collocato in un parchetto giochi. Sostituisce il launcher di sistema con una schermata semplice e colorata che mostra solo i giochi gratuiti scelti dal gestore. Quando il bambino chiude il gioco (o preme il tasto Home), l'app torna automaticamente alla schermata con l'elenco dei giochi.
+App Android pensata per essere installata su un monitor/tablet Android collocato in un parchetto giochi. Sostituisce il launcher di sistema con una schermata semplice e colorata (logo "Kids Fun Planet") che mostra solo i giochi gratuiti scelti dal gestore. Quando il bambino chiude il gioco (o preme il tasto Home), l'app torna automaticamente alla schermata con l'elenco dei giochi.
 
 ## Come funziona
 
-- L'app si registra come **launcher predefinito** (categoria `HOME`), oltre che come normale app. Al primo avvio del dispositivo (o disinstallando/disabilitando temporaneamente l'altro launcher) Android chiederà di scegliere il launcher predefinito: selezionare "Giochi del Parco" e impostarlo come predefinito ("sempre").
+- L'app si registra come **launcher predefinito** (categoria `HOME`), oltre che come normale app. Al primo avvio del dispositivo (o disinstallando/disabilitando temporaneamente l'altro launcher) Android chiederà di scegliere il launcher predefinito: selezionare "Kids Fun Planet" e impostarlo come predefinito ("sempre").
 - Perché Android torna da solo alla griglia: quando l'app launcher è quella predefinita, la sua Activity resta in fondo allo stack. Quando il gioco lanciato viene chiuso (back ripetuto, uscita dal gioco, crash) o quando si preme il tasto Home, il sistema riporta automaticamente in primo piano la nostra schermata, senza bisogno di codice aggiuntivo.
 - Nessuna icona di altre app o barra di sistema è visibile: l'interfaccia è a schermo intero (immersive mode).
+
+## Modalità Kiosk (uscita bloccata) — consigliata per il tablet del parco
+
+Per impedire davvero ai bambini di uscire dall'app (niente Home, niente Recenti, niente barra delle notifiche, nessun'altra app apribile a parte i giochi selezionati), l'app sfrutta la **Lock Task Mode** di Android, attivabile registrando l'app come **Device Owner** del tablet. È una procedura *una tantum*, da fare una volta sola su un tablet dedicato solo a questo uso (non un telefono personale).
+
+Requisiti: il tablet deve essere **senza nessun account Google configurato** (va fatto su un dispositivo nuovo o dopo un reset alle impostazioni di fabbrica, saltando la configurazione dell'account durante il setup iniziale), con il debug USB attivo e collegato a un PC con `adb`.
+
+Procedura:
+
+1. Sul tablet: Impostazioni > Info sul telefono > tocca 7 volte "Numero build" per attivare le Opzioni sviluppatore, poi Impostazioni > Sistema > Opzioni sviluppatore > attiva "Debug USB".
+2. Collega il tablet al PC via USB e autorizza il debug quando richiesto.
+3. Installa l'app (se non già installata): `adb install app-debug.apk`.
+4. Imposta l'app come Device Owner:
+   ```
+   adb shell dpm set-device-owner it.bigbenmatic.gamelauncher/.DeviceOwnerReceiver
+   ```
+5. Apri l'app: la schermata Impostazioni (PIN) mostrerà "Modalità Kiosk: ATTIVA". Da quel momento il tablet resta bloccato sull'app e sui giochi selezionati.
+6. Per fare manutenzione (es. installare nuovi giochi dal Play Store), apri le Impostazioni dell'app col PIN e tocca **"Sblocca temporaneamente"**: questo sospende il blocco finché non si rientra nell'app.
+
+> Se il comando `set-device-owner` fallisce con "not allowed" significa che sul dispositivo è già presente un account o un altro profilo: serve un reset di fabbrica e ripetere la procedura prima di aggiungere account.
+
+Senza questa configurazione, l'app funziona comunque come launcher predefinito a schermo intero (buona protezione per l'uso quotidiano), ma un utente esperto potrebbe comunque raggiungere le impostazioni di sistema tramite le scorciatoie del produttore del tablet.
 
 ## Configurazione dei giochi (per il gestore/genitore)
 
 1. Installare dal Google Play Store i giochi gratuiti desiderati sul dispositivo, normalmente.
-2. Aprire "Giochi del Parco" e tenere premuto il titolo "I miei giochi" per accedere all'area riservata.
+2. Aprire "Kids Fun Planet" e tenere premuto il logo per accedere all'area riservata.
 3. Inserire il PIN (default `1234`, modificabile nelle impostazioni).
 4. Selezionare con le checkbox quali app devono apparire ai bambini.
 5. (Opzionale) Cambiare il PIN per maggiore sicurezza.
@@ -42,6 +64,5 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Possibili estensioni future (non incluse)
 
-- Modalità "kiosk" rinforzata con screen pinning automatico o provisioning come Device Owner, per impedire del tutto l'accesso alle impostazioni di sistema o alla barra delle notifiche.
 - Timer di gioco per limitare la durata di ogni sessione.
 - Download/aggiornamento dei giochi gestito da remoto (MDM).
