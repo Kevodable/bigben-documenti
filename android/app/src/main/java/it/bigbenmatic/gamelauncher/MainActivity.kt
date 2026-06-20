@@ -16,12 +16,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -127,13 +129,40 @@ private fun LauncherApp(prefs: PrefsManager) {
     }
 }
 
+// Palette sampled from the Kids Fun Planet logo.
+private val LogoCoral = Color(0xFFCC7375)
+private val LogoPink = Color(0xFFD89FA6)
+private val LogoTan = Color(0xFFD1B085)
+private val LogoSage = Color(0xFF8A9978)
+private val LogoTeal = Color(0xFF7AACAD)
+private val LogoSky = Color(0xFFB5DCEB)
+private val LogoYellow = Color(0xFFFDCE72)
+
 @Composable
 private fun kidsColorScheme() = lightColorScheme(
     primary = Color(0xFF3346D6),
-    secondary = Color(0xFFFFC107),
+    secondary = LogoYellow,
     background = Color(0xFFF0F4FF),
     surface = Color.White,
 )
+
+@Composable
+private fun LogoBackground(modifier: Modifier = Modifier) {
+    val gradient = Brush.linearGradient(
+        colors = listOf(LogoCoral, LogoPink, LogoTan, LogoSage, LogoTeal, LogoSky),
+    )
+    Box(modifier = modifier.fillMaxSize().background(gradient)) {
+        Image(
+            painter = painterResource(id = R.drawable.logo_fun_planet),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            alpha = 0.22f,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth(0.92f),
+        )
+    }
+}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -142,41 +171,43 @@ private fun HomeScreen(
     onPlay: (String) -> Unit,
     onRequestSettings: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = onRequestSettings,
-                ),
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.logo_fun_planet),
-                contentDescription = "Kids Fun Planet",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.height(90.dp),
-            )
-        }
-        Spacer(Modifier.height(16.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        LogoBackground()
 
-        if (games.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Nessun gioco configurato.\nTieni premuto il logo per aprire le impostazioni.",
-                    fontSize = 18.sp,
-                    color = Color.Gray,
-                )
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+        Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.55f))
+                    .combinedClickable(onClick = {}, onLongClick = onRequestSettings),
+                contentAlignment = Alignment.Center,
             ) {
-                items(games, key = { it.packageName }) { game ->
-                    GameTile(game = game, onClick = { onPlay(game.packageName) })
+                Icon(Icons.Filled.Settings, contentDescription = "Impostazioni", tint = Color.White)
+            }
+            Spacer(Modifier.height(12.dp))
+
+            if (games.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Nessun gioco configurato.\nTieni premuto l'icona in alto per aprire le impostazioni.",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 160.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    items(games, key = { it.packageName }) { game ->
+                        GameTile(game = game, onClick = { onPlay(game.packageName) })
+                    }
                 }
             }
         }
