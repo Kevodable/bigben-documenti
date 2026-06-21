@@ -561,8 +561,13 @@ private fun DiagnosticsScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val fleetApp = context.applicationContext as FleetApp
     val deviceId = remember { DeviceIdManager.getDeviceId(context) }
     val devicePrefs = remember { DevicePrefs(context) }
+    val existingLifeline = remember { devicePrefs.getLifelineWifi() }
+    var wifiSsid by remember { mutableStateOf(existingLifeline?.ssid ?: "") }
+    var wifiPass by remember { mutableStateOf(existingLifeline?.password ?: "") }
+    var wifiSaved by remember { mutableStateOf(false) }
     val appVersion = remember {
         runCatching {
             @Suppress("DEPRECATION")
@@ -603,6 +608,49 @@ private fun DiagnosticsScreen(
                 fontSize = 12.sp,
             )
         }
+
+        Spacer(Modifier.height(24.dp))
+        Text("Wi-Fi di salvataggio (lifeline)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = "Rete di riserva memorizzata solo su questo dispositivo (non viene mai inviata online). " +
+                "Serve come ancora di salvezza: se il Wi-Fi del locale cambia password, il monitor resta " +
+                "raggiungibile su questa rete, scarica la nuova configurazione e si riconnette da solo.",
+            fontSize = 12.sp,
+            color = Color.Gray,
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = wifiSsid,
+            onValueChange = { wifiSsid = it; wifiSaved = false },
+            label = { Text("Nome rete (SSID)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = wifiPass,
+            onValueChange = { wifiPass = it; wifiSaved = false },
+            label = { Text("Password (vuota = rete aperta)") },
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    devicePrefs.setLifelineWifi(wifiSsid.trim(), wifiPass, hidden = false)
+                    fleetApp.applyWifi()
+                    wifiSaved = true
+                },
+                enabled = wifiSsid.isNotBlank(),
+            ) { Text("Salva e applica") }
+            if (wifiSaved) {
+                Spacer(Modifier.width(12.dp))
+                Text("Salvata ✓", color = Color(0xFF2E7D32), fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
     }
 }
 

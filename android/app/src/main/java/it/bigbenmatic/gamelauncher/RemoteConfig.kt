@@ -57,6 +57,13 @@ data class UpdateInfo(
     val silentInstall: Boolean = false,
 )
 
+data class WifiNetwork(
+    val ssid: String,
+    val password: String?,
+    val priority: Int = 0,
+    val hidden: Boolean = false,
+)
+
 data class TelemetryConfig(
     val enabled: Boolean = false,
     val reportUrl: String? = null,
@@ -78,6 +85,7 @@ data class ResolvedConfig(
     val games: List<RemoteGame>,
     val update: UpdateInfo,
     val telemetry: TelemetryConfig,
+    val wifiNetworks: List<WifiNetwork>,
 )
 
 /** Parses the fleet config.json and resolves the effective settings for [deviceId],
@@ -108,6 +116,9 @@ object RemoteConfigParser {
         val update = parseUpdate(defaults.optJSONObject("update"))
         val telemetry = parseTelemetry(defaults.optJSONObject("telemetry"))
         val games = mergeGames(defaults.optJSONArray("games"), deviceOverride?.optJSONArray("games"))
+        val wifiNetworks = parseWifi(
+            mergeObjects(defaults.optJSONObject("network"), deviceOverride?.optJSONObject("network"))
+        )
 
         return ResolvedConfig(
             schemaVersion = root.optInt("schemaVersion", 1),
@@ -121,7 +132,26 @@ object RemoteConfigParser {
             games = games,
             update = update,
             telemetry = telemetry,
+            wifiNetworks = wifiNetworks,
         )
+    }
+
+    private fun parseWifi(o: JSONObject): List<WifiNetwork> {
+        val arr = o.optJSONArray("wifiNetworks") ?: return emptyList()
+        val result = mutableListOf<WifiNetwork>()
+        for (i in 0 until arr.length()) {
+            val n = arr.optJSONObject(i) ?: continue
+            val ssid = n.optStringOrNull("ssid") ?: continue
+            result.add(
+                WifiNetwork(
+                    ssid = ssid,
+                    password = n.optStringOrNull("password"),
+                    priority = n.optInt("priority", 0),
+                    hidden = n.optBoolean("hidden", false),
+                )
+            )
+        }
+        return result
     }
 
     /** Shallow merge: every key present in [override] replaces the one in [base]. */

@@ -17,6 +17,7 @@ class FleetApp : Application() {
 
     lateinit var configRepository: ConfigRepository
     lateinit var telemetryManager: TelemetryManager
+    private lateinit var devicePrefs: DevicePrefs
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -24,15 +25,29 @@ class FleetApp : Application() {
         super.onCreate()
         configRepository = ConfigRepository(this)
         telemetryManager = TelemetryManager(this)
+        devicePrefs = DevicePrefs(this)
+
+        // Apply Wi-Fi straight away (lifeline + whatever the cached config carries) so the
+        // device can reach the network before the first poll completes.
+        applyWifi()
 
         startConfigPollingLoop()
         startTelemetryLoop()
+    }
+
+    /** Registers the lifeline Wi-Fi plus any venue networks from the active config. */
+    fun applyWifi() {
+        val lifeline = devicePrefs.getLifelineWifi()
+        val remote = configRepository.config.value?.wifiNetworks.orEmpty()
+        val all = (listOfNotNull(lifeline) + remote)
+        if (all.isNotEmpty()) WifiProvisioner.apply(this, all)
     }
 
     private fun startConfigPollingLoop() {
         scope.launch {
             while (true) {
                 runCatching { configRepository.refresh() }
+                runCatching { applyWifi() }
                 val minutes = configRepository.config.value?.pollIntervalMinutes?.takeIf { it > 0 } ?: 15
                 delay(minutes * 60_000L)
             }

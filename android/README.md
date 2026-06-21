@@ -117,6 +117,35 @@ server, consultabile da telefono).
 - **Alert Telegram**: predisposto ma non attivo (funzione `checkOfflineMonitors` in `Code.gs`),
   da completare lato script ricevente quando servirà.
 
+### Wi-Fi con failover (rete locale + rete di salvataggio)
+
+Il monitor può connettersi a due tipi di rete, con failover automatico gestito da Android:
+
+- **Wi-Fi di salvataggio (lifeline)**: si imposta una volta sola **sul dispositivo**, dalla
+  schermata Diagnostica (protetta da PIN). È salvata solo in locale e **non viene mai inviata
+  online**. È l'ancora di salvezza.
+- **Wi-Fi del locale (non-default)**: arriva da `config.json` (`defaults.network.wifiNetworks`,
+  override possibile per dispositivo) ed è aggiornabile **da remoto**.
+
+Avendo entrambe configurate, Android si connette automaticamente a quella disponibile. Così, se
+il locale cambia le credenziali Wi-Fi, il monitor resta online tramite la lifeline, scarica il
+nuovo `config.json` con le credenziali aggiornate e si riconnette da solo — senza interventi sul
+posto.
+
+> ⚠️ **Perché la lifeline deve stare sul dispositivo e non nel config remoto:** se il monitor non
+> avesse alcuna rete funzionante non potrebbe scaricare `config.json`, quindi non potrebbe
+> ottenere le credenziali Wi-Fi da lì (problema dell'uovo e la gallina). La lifeline locale rompe
+> questo stallo.
+
+> ⚠️ **Sicurezza:** `config.json` su GitHub Pages è **pubblico**. La password della Wi-Fi del
+> locale inserita lì è leggibile da chiunque conosca l'URL. Usa una rete dedicata e non riutilizzare
+> quella password per altri servizi. La lifeline (locale) resta invece privata.
+
+> ℹ️ La gestione programmatica del Wi-Fi varia molto tra versioni Android e produttori e **non è
+> stato possibile testarla su un dispositivo reale** in questo ambiente: verifica sul tablet di
+> destinazione. Su Android 10+ l'API a "suggerimenti" non forza il cambio immediato ma lascia che
+> sia il sistema a connettersi automaticamente.
+
 ### Compatibilità device-owner / lock task
 
 - Polling config e telemetria girano nell'oggetto `Application` (`FleetApp`) su coroutine di

@@ -32,10 +32,33 @@ class DevicePrefs(context: Context) {
         prefs.edit().putString(KEY_LAST_CONN_STATUS, status).apply()
     }
 
+    /** Local-only lifeline Wi-Fi (never sent anywhere): the safety-net network the device
+     * falls back to so it can always reach the remote config, even if the venue Wi-Fi changes. */
+    fun getLifelineWifi(): WifiNetwork? {
+        val ssid = prefs.getString(KEY_WIFI_SSID, null)?.takeIf { it.isNotBlank() } ?: return null
+        return WifiNetwork(
+            ssid = ssid,
+            password = prefs.getString(KEY_WIFI_PASS, null),
+            priority = 0,
+            hidden = prefs.getBoolean(KEY_WIFI_HIDDEN, false),
+        )
+    }
+
+    fun setLifelineWifi(ssid: String, password: String, hidden: Boolean) {
+        prefs.edit()
+            .putString(KEY_WIFI_SSID, ssid)
+            .putString(KEY_WIFI_PASS, password)
+            .putBoolean(KEY_WIFI_HIDDEN, hidden)
+            .apply()
+    }
+
     companion object {
         private const val KEY_CONFIG_JSON = "cached_config_json"
         private const val KEY_CONFIG_VERSION = "cached_config_version"
         private const val KEY_LAST_TELEMETRY_OK = "last_telemetry_success_millis"
         private const val KEY_LAST_CONN_STATUS = "last_connection_status"
+        private const val KEY_WIFI_SSID = "lifeline_wifi_ssid"
+        private const val KEY_WIFI_PASS = "lifeline_wifi_pass"
+        private const val KEY_WIFI_HIDDEN = "lifeline_wifi_hidden"
     }
 }

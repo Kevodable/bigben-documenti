@@ -49,6 +49,11 @@
         "sessionLimitSeconds": 0
       }
     ],
+    "network": {
+      "wifiNetworks": [
+        { "ssid": "WiFi-Locale", "password": "password-del-locale", "priority": 100, "hidden": false }
+      ]
+    },
     "update": {
       "latestVersionCode": 1,
       "apkUrl": "https://kevodable.github.io/bigben-documenti/launcher/apk/launcher-latest.apk",
