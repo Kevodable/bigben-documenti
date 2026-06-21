@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kids Fun Planet · Memory</title>
+<style>
+  :root{
+    --bg1:#ff9a3c; --bg2:#ff5e8a; --bg3:#7c4dff; --bg4:#36c8e8;
+    --card:#ffffff; --ink:#2b2b3a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
+  html,body{overscroll-behavior:none;height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 45%,var(--bg3) 75%,var(--bg4));
+    background-size:200% 200%;
+    animation:bgmove 18s ease infinite;
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:14px;
+  }
+  @keyframes bgmove{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+
+  .topbar{width:100%;max-width:900px;display:flex;align-items:center;justify-content:space-between;
+    gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .title{font-size:clamp(22px,5vw,32px);font-weight:900;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.15);
+    display:flex;align-items:center;gap:10px;}
+  .title .ico{font-size:1.1em;filter:drop-shadow(0 2px 0 rgba(0,0,0,.15));}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .pill{background:rgba(255,255,255,.92);border-radius:30px;padding:9px 16px;font-weight:800;font-size:14px;
+    box-shadow:0 4px 10px rgba(0,0,0,.12);display:flex;align-items:center;gap:6px;color:#3a3a55;}
+  .pill .v{font-size:17px;color:#ff5e8a;}
+
+  .controls{width:100%;max-width:900px;display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .levels{display:flex;gap:8px;flex:1;flex-wrap:wrap;}
+  .lvl-btn{flex:1;min-width:90px;background:rgba(255,255,255,.85);border:none;border-radius:14px;padding:10px 8px;
+    font-weight:800;font-size:14px;color:#3a3a55;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.1);transition:transform .1s;}
+  .lvl-btn.active{background:#3a3a55;color:#fff;}
+  .lvl-btn:active{transform:scale(.95);}
+  .restart-btn{background:#3ddc97;border:none;border-radius:14px;padding:10px 18px;font-weight:800;font-size:14px;
+    color:#fff;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,.15);display:flex;align-items:center;gap:6px;}
+  .restart-btn:active{transform:scale(.95);}
+
+  .board{
+    display:grid;gap:10px;width:100%;max-width:900px;flex:1;
+    perspective:800px;
+  }
+  .tile{
+    position:relative;aspect-ratio:1/1;border-radius:16px;cursor:pointer;
+  }
+  .tile-inner{
+    position:absolute;inset:0;border-radius:16px;transition:transform .45s cubic-bezier(.2,.9,.3,1.1);
+    transform-style:preserve-3d;
+  }
+  .tile.flipped .tile-inner, .tile.matched .tile-inner{transform:rotateY(180deg);}
+  .face{
+    position:absolute;inset:0;border-radius:16px;backface-visibility:hidden;
+    display:flex;align-items:center;justify-content:center;font-size:clamp(28px,8vw,52px);
+    box-shadow:0 4px 10px rgba(0,0,0,.18);
+  }
+  .face.back{
+    background:linear-gradient(160deg,#7c4dff,#36c8e8);
+    color:#fff;font-size:clamp(20px,5vw,30px);
+  }
+  .face.front{
+    background:var(--card);
+    transform:rotateY(180deg);
+  }
+  .tile.matched .face.front{
+    background:linear-gradient(160deg,#9bffb0,#3ddc97);
+    animation:pop .4s ease;
+  }
+  .tile.wrong .tile-inner{animation:shake .4s;}
+  @keyframes pop{0%{transform:rotateY(180deg) scale(1);}50%{transform:rotateY(180deg) scale(1.12);}100%{transform:rotateY(180deg) scale(1);}}
+  @keyframes shake{0%,100%{transform:rotateY(180deg) translateX(0);}25%{transform:rotateY(180deg) translateX(-8px);}75%{transform:rotateY(180deg) translateX(8px);}}
+
+  .overlay{position:fixed;inset:0;background:rgba(20,10,40,.55);display:none;align-items:center;justify-content:center;z-index:50;}
+  .overlay.show{display:flex;}
+  .win-card{background:#fff;border-radius:24px;padding:34px 28px;text-align:center;max-width:340px;
+    box-shadow:0 20px 50px rgba(0,0,0,.3);}
+  .win-card .emoji{font-size:60px;margin-bottom:6px;}
+  .win-card h2{font-size:24px;font-weight:900;color:#3a3a55;margin-bottom:8px;}
+  .win-card p{color:#6b6b85;font-size:15px;margin-bottom:20px;}
+  .win-card button{background:linear-gradient(135deg,#ff5e8a,#7c4dff);border:none;color:#fff;font-weight:800;
+    font-size:16px;padding:14px 26px;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.2);}
+
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden;}
+  .confetti span{position:absolute;top:-10px;font-size:22px;animation:fall linear forwards;}
+  @keyframes fall{to{transform:translateY(110vh) rotate(360deg);opacity:.9;}}
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="title"><span class="ico">🎡</span> Kids Fun Planet · Memory</div>
+    <div class="stats">
+      <div class="pill">🎯 <span class="v" id="moves">0</span> mosse</div>
+      <div class="pill">⏱️ <span class="v" id="timer">00:00</span></div>
+      <div class="pill">⭐ <span class="v" id="found">0</span>/<span id="totalPairs">0</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="levels" id="levels"></div>
+    <button class="restart-btn" onclick="startGame()">🔄 Ricomincia</button>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="overlay" id="winOverlay">
+    <div class="win-card">
+      <div class="emoji">🏆</div>
+      <h2>Bravissimo!</h2>
+      <p id="winText"></p>
+      <button onclick="startGame()">Gioca ancora</button>
+    </div>
+  </div>
+
+  <div class="confetti" id="confetti"></div>
+
+<script>
+const EMOJI=['🎠','🎡','🎢','🤡','🎈','🍭','🍦','🧸','🚂','🎪','🦄','🐬','🍩','🪁','🐠','🐥','🍉','🌈','🚀','⚽','🎁','🥁'];
+
+const LEVELS={
+  facile:{cols:3,rows:4,label:'Facile · 6 coppie'},
+  medio:{cols:4,rows:4,label:'Medio · 8 coppie'},
+  difficile:{cols:4,rows:5,label:'Difficile · 10 coppie'}
+};
+let currentLevel='facile';
+let tiles=[],flipped=[],matchedCount=0,moves=0,lock=false;
+let timerInt=null,seconds=0;
+
+function renderLevelButtons(){
+  const box=document.getElementById('levels');
+  box.innerHTML=Object.keys(LEVELS).map(k=>
+    `<button class="lvl-btn${k===currentLevel?' active':''}" data-k="${k}" onclick="setLevel('${k}')">${LEVELS[k].label}</button>`
+  ).join('');
+}
+function setLevel(k){currentLevel=k;renderLevelButtons();startGame();}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function startGame(){
+  clearInterval(timerInt);seconds=0;updateTimerDisplay();
+  timerInt=setInterval(()=>{seconds++;updateTimerDisplay();},1000);
+
+  const {cols,rows}=LEVELS[currentLevel];
+  const pairCount=(cols*rows)/2;
+  const chosen=shuffle(EMOJI.slice()).slice(0,pairCount);
+  const deck=shuffle(chosen.concat(chosen)).map((e,i)=>({id:i,emoji:e,flipped:false,matched:false}));
+
+  tiles=deck;flipped=[];matchedCount=0;moves=0;lock=false;
+  document.getElementById('moves').textContent='0';
+  document.getElementById('found').textContent='0';
+  document.getElementById('totalPairs').textContent=pairCount;
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('confetti').innerHTML='';
+
+  const board=document.getElementById('board');
+  board.style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  board.innerHTML=tiles.map(t=>`
+    <div class="tile" data-id="${t.id}" onclick="flipTile(${t.id})">
+      <div class="tile-inner">
+        <div class="face back">❓</div>
+        <div class="face front">${t.emoji}</div>
+      </div>
+    </div>`).join('');
+}
+
+function updateTimerDisplay(){
+  const m=String(Math.floor(seconds/60)).padStart(2,'0');
+  const s=String(seconds%60).padStart(2,'0');
+  document.getElementById('timer').textContent=`${m}:${s}`;
+}
+
+function flipTile(id){
+  if(lock)return;
+  const t=tiles.find(x=>x.id===id);
+  if(!t||t.flipped||t.matched)return;
+  t.flipped=true;
+  const el=document.querySelector(`.tile[data-id="${id}"]`);
+  el.classList.add('flipped');
+  flipped.push(t);
+
+  if(flipped.length===2){
+    lock=true;moves++;
+    document.getElementById('moves').textContent=moves;
+    const[a,b]=flipped;
+    if(a.emoji===b.emoji){
+      a.matched=true;b.matched=true;
+      document.querySelector(`.tile[data-id="${a.id}"]`).classList.add('matched');
+      document.querySelector(`.tile[data-id="${b.id}"]`).classList.add('matched');
+      matchedCount++;
+      document.getElementById('found').textContent=matchedCount;
+      flipped=[];lock=false;
+      if(matchedCount===tiles.length/2)setTimeout(winGame,400);
+    }else{
+      const elA=document.querySelector(`.tile[data-id="${a.id}"]`);
+      const elB=document.querySelector(`.tile[data-id="${b.id}"]`);
+      elA.classList.add('wrong');elB.classList.add('wrong');
+      setTimeout(()=>{
+        a.flipped=false;b.flipped=false;
+        elA.classList.remove('flipped','wrong');
+        elB.classList.remove('flipped','wrong');
+        flipped=[];lock=false;
+      },800);
+    }
+  }
+}
+
+function winGame(){
+  clearInterval(timerInt);
+  document.getElementById('winText').textContent=
+    `Hai trovato tutte le coppie in ${moves} mosse e ${document.getElementById('timer').textContent} minuti!`;
+  document.getElementById('winOverlay').classList.add('show');
+  launchConfetti();
+}
+function launchConfetti(){
+  const box=document.getElementById('confetti');
+  const emojis=['🎉','🎊','⭐','🎈','🏆'];
+  for(let i=0;i<40;i++){
+    const s=document.createElement('span');
+    s.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    s.style.left=Math.random()*100+'%';
+    s.style.animationDuration=(2+Math.random()*2)+'s';
+    s.style.animationDelay=(Math.random()*0.5)+'s';
+    box.appendChild(s);
+  }
+  setTimeout(()=>box.innerHTML='',4500);
+}
+
+renderLevelButtons();
+startGame();
+</script>
+</body>
+</html>
