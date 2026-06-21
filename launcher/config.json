@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "configVersion": 1,
+  "updatedAt": "2026-06-21T10:00:00+02:00",
+  "pollIntervalMinutes": 15,
+  "defaults": {
+    "branding": {
+      "appTitle": "Kids Fun Planet",
+      "logoUrl": "https://kevodable.github.io/bigben-documenti/launcher/assets/logo.png",
+      "backgroundUrl": "https://kevodable.github.io/bigben-documenti/launcher/assets/bg-default.jpg",
+      "primaryColor": "#3346D6",
+      "accentColor": "#FDCE72",
+      "language": "it"
+    },
+    "layout": { "columns": 4, "tileSize": "large", "showLabels": true },
+    "kiosk": {
+      "enabled": true,
+      "exitPin": "4271",
+      "idleTimeoutSeconds": 150,
+      "sessionLimitSeconds": 0,
+      "maxVolumePercent": 70,
+      "brightnessPercent": 90,
+      "autoLaunchPackage": null
+    },
+    "operational": {
+      "status": "active",
+      "maintenanceMessage": "",
+      "banner": { "enabled": false, "text": "", "imageUrl": "" }
+    },
+    "games": [
+      {
+        "id": "racing01",
+        "package": "com.example.kartracing",
+        "displayName": "Go-Kart Challenge",
+        "iconUrl": "https://kevodable.github.io/bigben-documenti/launcher/icons/kart.png",
+        "category": "Corse",
+        "order": 1,
+        "visible": true,
+        "sessionLimitSeconds": 0
+      },
+      {
+        "id": "puzzle01",
+        "package": "com.example.puzzle",
+        "displayName": "Puzzle Party",
+        "iconUrl": "https://kevodable.github.io/bigben-documenti/launcher/icons/puzzle.png",
+        "category": "Puzzle",
+        "order": 2,
+        "visible": true,
+        "sessionLimitSeconds": 0
+      }
+    ],
+    "update": {
+      "latestVersionCode": 1,
+      "apkUrl": "https://kevodable.github.io/bigben-documenti/launcher/apk/launcher-latest.apk",
+      "silentInstall": true
+    },
+    "telemetry": {
+      "enabled": true,
+      "reportUrl": "https://script.google.com/macros/s/XXXX/exec",
+      "reportIntervalMinutes": 30,
+      "heartbeatIntervalMinutes": 5,
+      "sendGameUsage": true,
+      "sendDeviceHealth": true
+    }
+  },
+  "devices": {
+    "INCOLLA-QUI-IL-DEVICE-ID": {
+      "label": "Touch ingresso sala",
+      "branding": { "backgroundUrl": "https://kevodable.github.io/bigben-documenti/launcher/assets/bg-ingresso.jpg" },
+      "games": [
+        { "id": "racing01", "visible": true, "order": 1 },
+        { "id": "puzzle01", "visible": true, "order": 2 }
+      ]
+    }
+  }
+}

@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
@@ -25,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -36,12 +39,16 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-private enum class Screen { HOME, PIN_ENTRY, SETTINGS }
+private enum class Screen { HOME, PIN_ENTRY, SETTINGS, DIAGNOSTICS }
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: PrefsManager
+    private val resumeTick = mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,7 +57,7 @@ class MainActivity : ComponentActivity() {
         KioskManager.syncAllowedPackages(this, prefs.getSelectedPackages())
 
         setContent {
-            LauncherApp(prefs = prefs)
+            LauncherApp(prefs = prefs, resumeTick = resumeTick.value)
         }
     }
 
@@ -58,6 +65,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         hideSystemBars()
         KioskManager.engage(this)
+        resumeTick.value++
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -76,8 +84,12 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun LauncherApp(prefs: PrefsManager) {
+private fun LauncherApp(prefs: PrefsManager, resumeTick: Int) {
     val context = LocalContext.current
+    val fleetApp = context.applicationContext as FleetApp
+    val config by fleetApp.configRepository.config.collectAsState()
+    val connectionStatus by fleetApp.configRepository.connectionStatus.collectAsState()
+
     var screen by remember { mutableStateOf(Screen.HOME) }
     var selectedPackages by remember { mutableStateOf(prefs.getSelectedPackages()) }
     var allApps by remember { mutableStateOf(InstalledAppsRepository.getAllLaunchableApps(context)) }
@@ -93,14 +105,58 @@ private fun LauncherApp(prefs: PrefsManager) {
     }
 
     LaunchedEffect(Unit) { refreshApps() }
-    LaunchedEffect(selectedPackages) { KioskManager.syncAllowedPackages(context, selectedPackages) }
 
-    MaterialTheme(colorScheme = kidsColorScheme()) {
+    // Effective PIN: the remotely configured exit PIN wins over the local one when present.
+    val effectivePin = config?.kiosk?.exitPin?.takeIf { it.isNotBlank() } ?: prefs.getPin()
+
+    // Effective game list: when the fleet config defines visible games that are actually
+    // installed, those drive the grid (remote control); otherwise we fall back to the
+    // locally chosen games so the app keeps working with no or stale config.
+    val installedByPkg = remember(allApps) { allApps.associateBy { it.packageName } }
+    val remoteGames = config?.games.orEmpty()
+        .filter { it.visible && it.packageName != null && installedByPkg.containsKey(it.packageName) }
+    val usingRemoteGames = remoteGames.isNotEmpty()
+    val effectiveGames: List<GameApp> = if (usingRemoteGames) {
+        remoteGames.map { rg ->
+            val base = installedByPkg[rg.packageName]!!
+            if (rg.displayName != null) base.copy(label = rg.displayName) else base
+        }
+    } else {
+        allApps.filter { it.packageName in selectedPackages }
+    }
+
+    // Keep the kiosk allow-list in sync with whatever is actually playable right now.
+    val allowedPackages = if (usingRemoteGames) remoteGames.mapNotNull { it.packageName }.toSet() else selectedPackages
+    LaunchedEffect(allowedPackages) { KioskManager.syncAllowedPackages(context, allowedPackages) }
+
+    // Single-game stations: boot straight into the configured package each time we land on Home.
+    val autoLaunch = config?.kiosk?.autoLaunchPackage
+    LaunchedEffect(autoLaunch, resumeTick, screen) {
+        if (screen == Screen.HOME && autoLaunch != null && installedByPkg.containsKey(autoLaunch)) {
+            fleetApp.telemetryManager.recordGameLaunch(autoLaunch)
+            InstalledAppsRepository.launch(context, autoLaunch)
+        }
+    }
+
+    val colorScheme = rememberColorScheme(config?.branding)
+
+    MaterialTheme(colorScheme = colorScheme) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            when (screen) {
-                Screen.HOME -> HomeScreen(
-                    games = allApps.filter { it.packageName in selectedPackages },
+            val operational = config?.operational
+            when {
+                operational?.status == "maintenance" && screen == Screen.HOME -> MaintenanceScreen(
+                    message = operational.maintenanceMessage,
+                    branding = config?.branding,
+                    onRequestSettings = { screen = Screen.PIN_ENTRY },
+                )
+                screen == Screen.HOME -> HomeScreen(
+                    games = effectiveGames,
+                    columns = config?.layout?.columns ?: 0,
+                    showLabels = config?.layout?.showLabels ?: true,
+                    banner = operational?.banner,
+                    branding = config?.branding,
                     onPlay = { pkg ->
+                        fleetApp.telemetryManager.recordGameLaunch(pkg)
                         if (!InstalledAppsRepository.launch(context, pkg)) {
                             Toast.makeText(context, "Gioco non disponibile", Toast.LENGTH_SHORT).show()
                             refreshApps()
@@ -108,21 +164,28 @@ private fun LauncherApp(prefs: PrefsManager) {
                     },
                     onRequestSettings = { screen = Screen.PIN_ENTRY },
                 )
-                Screen.PIN_ENTRY -> PinEntryScreen(
-                    expectedPin = prefs.getPin(),
+                screen == Screen.PIN_ENTRY -> PinEntryScreen(
+                    expectedPin = effectivePin,
                     onSuccess = { screen = Screen.SETTINGS },
                     onCancel = { screen = Screen.HOME },
                 )
-                Screen.SETTINGS -> SettingsScreen(
+                screen == Screen.SETTINGS -> SettingsScreen(
                     allApps = allApps,
                     selectedPackages = selectedPackages,
                     currentPin = prefs.getPin(),
+                    remoteControlled = usingRemoteGames,
                     onToggle = { pkg, checked ->
                         selectedPackages = if (checked) selectedPackages + pkg else selectedPackages - pkg
                         prefs.setSelectedPackages(selectedPackages)
                     },
                     onChangePin = { newPin -> prefs.setPin(newPin) },
+                    onOpenDiagnostics = { screen = Screen.DIAGNOSTICS },
                     onDone = { screen = Screen.HOME },
+                )
+                screen == Screen.DIAGNOSTICS -> DiagnosticsScreen(
+                    config = config,
+                    connectionStatus = connectionStatus,
+                    onBack = { screen = Screen.SETTINGS },
                 )
             }
         }
@@ -138,13 +201,38 @@ private val LogoTeal = Color(0xFF7AACAD)
 private val LogoSky = Color(0xFFB5DCEB)
 private val LogoYellow = Color(0xFFFDCE72)
 
+private fun parseColorOrNull(hex: String?): Color? =
+    hex?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
+
 @Composable
-private fun kidsColorScheme() = lightColorScheme(
-    primary = Color(0xFF3346D6),
-    secondary = LogoYellow,
+private fun rememberColorScheme(branding: Branding?) = lightColorScheme(
+    primary = parseColorOrNull(branding?.primaryColor) ?: Color(0xFF3346D6),
+    secondary = parseColorOrNull(branding?.accentColor) ?: LogoYellow,
     background = Color(0xFFF0F4FF),
     surface = Color.White,
 )
+
+/** Background: a remote branding image if the config supplies one (downloaded once),
+ * otherwise the built-in logo gradient. */
+@Composable
+private fun LauncherBackground(branding: Branding?, modifier: Modifier = Modifier) {
+    val backgroundUrl = branding?.backgroundUrl
+    var remoteBg by remember(backgroundUrl) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(backgroundUrl) {
+        if (backgroundUrl != null) remoteBg = RemoteImageLoader.load(backgroundUrl)
+    }
+    val bmp = remoteBg
+    if (bmp != null) {
+        Image(
+            bitmap = bmp.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier.fillMaxSize(),
+        )
+    } else {
+        LogoBackground(modifier)
+    }
+}
 
 @Composable
 private fun LogoBackground(modifier: Modifier = Modifier) {
@@ -168,11 +256,15 @@ private fun LogoBackground(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeScreen(
     games: List<GameApp>,
+    columns: Int,
+    showLabels: Boolean,
+    banner: Banner?,
+    branding: Branding?,
     onPlay: (String) -> Unit,
     onRequestSettings: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        LogoBackground()
+        LauncherBackground(branding)
 
         Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
             Box(
@@ -188,6 +280,21 @@ private fun HomeScreen(
             }
             Spacer(Modifier.height(12.dp))
 
+            if (banner?.enabled == true && banner.text.isNotBlank()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.85f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = banner.text,
+                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
             if (games.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -200,13 +307,14 @@ private fun HomeScreen(
                     )
                 }
             } else {
+                val gridCells = if (columns > 0) GridCells.Fixed(columns) else GridCells.Adaptive(minSize = 160.dp)
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 160.dp),
+                    columns = gridCells,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(games, key = { it.packageName }) { game ->
-                        GameTile(game = game, onClick = { onPlay(game.packageName) })
+                        GameTile(game = game, showLabel = showLabels, onClick = { onPlay(game.packageName) })
                     }
                 }
             }
@@ -215,7 +323,7 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun GameTile(game: GameApp, onClick: () -> Unit) {
+private fun GameTile(game: GameApp, showLabel: Boolean, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(24.dp))
@@ -229,13 +337,45 @@ private fun GameTile(game: GameApp, onClick: () -> Unit) {
             update = { it.setImageDrawable(game.icon) },
             modifier = Modifier.size(96.dp),
         )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = game.label,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
+        if (showLabel) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = game.label,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun MaintenanceScreen(
+    message: String,
+    branding: Branding?,
+    onRequestSettings: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LauncherBackground(branding)
+        // Hidden long-press affordance so an operator can still reach settings.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(64.dp)
+                .combinedClickable(onClick = {}, onLongClick = onRequestSettings),
         )
+        Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f))) {
+                Text(
+                    text = message.ifBlank { "Postazione temporaneamente fuori servizio. Torna presto!" },
+                    modifier = Modifier.padding(28.dp),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
     }
 }
 
@@ -282,8 +422,10 @@ private fun SettingsScreen(
     allApps: List<GameApp>,
     selectedPackages: Set<String>,
     currentPin: String,
+    remoteControlled: Boolean,
     onToggle: (String, Boolean) -> Unit,
     onChangePin: (String) -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -293,6 +435,8 @@ private fun SettingsScreen(
     Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = onOpenDiagnostics) { Text("Diagnostica") }
+            Spacer(Modifier.width(8.dp))
             Button(onClick = onDone) { Text("Fatto") }
         }
         Spacer(Modifier.height(8.dp))
@@ -325,6 +469,20 @@ private fun SettingsScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+        if (remoteControlled) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE7EEFF)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = "I giochi mostrati sono gestiti da remoto (config.json della flotta). " +
+                        "Le selezioni qui sotto restano valide solo come riserva se la configurazione remota non è disponibile.",
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 12.sp,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         Text("Scegli quali giochi mostrare ai bambini:", color = Color.Gray)
         Spacer(Modifier.height(8.dp))
 
@@ -369,5 +527,66 @@ private fun SettingsScreen(
                 }
             }) { Text("Salva") }
         }
+    }
+}
+
+@Composable
+private fun DiagnosticsScreen(
+    config: ResolvedConfig?,
+    connectionStatus: ConnectionStatus,
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
+    val deviceId = remember { DeviceIdManager.getDeviceId(context) }
+    val devicePrefs = remember { DevicePrefs(context) }
+    val appVersion = remember {
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+        }.getOrDefault(0)
+    }
+    val lastTelemetry = remember {
+        val millis = devicePrefs.getLastTelemetrySuccessMillis()
+        if (millis == 0L) "mai" else SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(Date(millis))
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Diagnostica", fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Button(onClick = onBack) { Text("Indietro") }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        DiagnosticRow("ID dispositivo", deviceId)
+        DiagnosticRow("Etichetta (label)", config?.deviceLabel ?: "— (non assegnata nel config remoto)")
+        DiagnosticRow("Versione app", appVersion.toString())
+        DiagnosticRow("Versione config attiva", config?.configVersion?.toString() ?: "nessuna")
+        DiagnosticRow("Ultimo contatto telemetria", lastTelemetry)
+        DiagnosticRow(
+            "Stato connessione config",
+            if (connectionStatus == ConnectionStatus.ONLINE) "online" else "offline",
+        )
+        DiagnosticRow("Stato operativo", config?.operational?.status ?: "—")
+
+        Spacer(Modifier.height(20.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F4FF))) {
+            Text(
+                text = "Comunica al gestore l'ID dispositivo qui sopra per aggiungere o configurare " +
+                    "questo monitor nel file config.json della flotta.",
+                modifier = Modifier.padding(12.dp),
+                fontSize = 12.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticRow(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(label, fontSize = 12.sp, color = Color.Gray)
+        Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Divider(Modifier.padding(top = 6.dp))
     }
 }

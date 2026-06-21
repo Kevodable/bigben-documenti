@@ -62,7 +62,81 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - Android 7.0 (API 24) o superiore.
 - I giochi mostrati devono essere già installati sul dispositivo (scaricati da Google Play); l'app non li scarica automaticamente.
 
+## Gestione remota della flotta
+
+I monitor possono essere gestiti da remoto senza recarsi sul posto, anche dopo
+l'attivazione del device-owner. Il sistema è composto da tre moduli.
+
+### Modulo 1 — Configurazione remota (`config.json` su GitHub Pages)
+
+- L'app scarica `config.json` all'avvio e poi lo ricontrolla ogni `pollIntervalMinutes`
+  (default 15, letto dal file stesso).
+- L'URL è impostato in `ConfigRepository.kt` (`FLEET_CONFIG_URL`). Il file di esempio è
+  in `launcher/config.json` di questo repository, pensato per essere pubblicato su
+  **GitHub Pages** sotto il percorso dedicato `/launcher/` per non entrare in conflitto
+  con il sito esistente nella root del repo (`index.html`).
+- **Logica di merge** (rispettata esattamente): si parte da `defaults`; si cerca il proprio
+  `deviceId` nella mappa `devices`; se presente, i campi indicati per quel dispositivo
+  sovrascrivono i default (quelli non indicati restano ai default). Per l'array `games`, le
+  voci per-dispositivo sono parziali (`id` + campi cambiati come `visible`/`order`): la
+  definizione completa (`package`, `displayName`, `iconUrl`) viene da `defaults.games` e
+  viene "patchata".
+- **Versioning**: si confronta `configVersion` con quello salvato localmente; se uguale si
+  salta, se diverso si applica, si persiste e si logga.
+- Cosa si controlla da remoto: elenco/visibilità/ordine/nome+icona/categoria dei giochi,
+  branding (logo/colori/sfondo/lingua), layout griglia (colonne, etichette), comportamento
+  kiosk (PIN di uscita, auto-launch di un singolo gioco), stato operativo (active/maintenance
+  + messaggio), banner promozionali.
+- **Offline-first**: l'ultima config valida viene messa in cache e riusata se la rete non è
+  disponibile, così il monitor continua a funzionare anche scollegato.
+
+### Modulo 2 — ID dispositivo + schermata Diagnostica
+
+- Al primo avvio viene generato un UUID stabile (`DeviceIdManager`), persistito e incluso in
+  ogni download config e in ogni invio di telemetria.
+- Una schermata **Diagnostica** (raggiungibile da Impostazioni, quindi protetta dal PIN)
+  mostra: `deviceId`, etichetta, versione app, `configVersion` attiva, ultimo contatto
+  telemetria, stato connessione. Serve per leggere l'ID sul dispositivo (senza ADB) e
+  aggiungerlo alla mappa `devices` del `config.json`.
+
+### Modulo 3 — Telemetria (Google Apps Script → Google Sheet)
+
+GitHub Pages è statico e non può ricevere dati, quindi la telemetria **non** va su github.io:
+il ricevitore è un **Google Apps Script** che scrive su un Google Sheet (gratuito, senza
+server, consultabile da telefono).
+
+- L'app invia: **heartbeat** leggero ogni `heartbeatIntervalMinutes` (default 5) e un
+  **report completo** ogni `reportIntervalMinutes` (default 30) con batteria, uptime e
+  conteggio lanci per gioco dall'ultimo report.
+- Gli invii sono **resilienti**: i payload vengono accodati localmente e ritrasmessi quando
+  torna la rete; non bloccano mai la UI (girano su thread di background nell'`Application`).
+- Codice ricevitore e istruzioni di deploy: `launcher/apps-script/Code.gs`. In sintesi: nuovo
+  Google Sheet → Estensioni > Apps Script → incolla `Code.gs` → esegui `setup` → distribuisci
+  come "App web" (accesso: Chiunque) → copia l'URL `/exec` in `config.json` →
+  `defaults.telemetry.reportUrl`.
+- **Alert Telegram**: predisposto ma non attivo (funzione `checkOfflineMonitors` in `Code.gs`),
+  da completare lato script ricevente quando servirà.
+
+### Compatibilità device-owner / lock task
+
+- Polling config e telemetria girano nell'oggetto `Application` (`FleetApp`) su coroutine di
+  background: non interferiscono con `startLockTask`/`stopLockTask` né con la griglia. Il
+  kiosk resta integro.
+- La allow-list del lock task (`setLockTaskPackages`) viene tenuta sincronizzata con i giochi
+  effettivamente mostrati (remoti o locali), così i giochi gestiti da remoto restano lanciabili
+  dentro il kiosk.
+- **Aggiornamento APK silenzioso** (`update.apkUrl`/`silentInstall`): lo schema è già previsto
+  nel `config.json`, ma l'installazione silenziosa via `PackageInstaller` sotto device-owner
+  **non è ancora implementata** in questa versione — è il punto più delicato (rischio di
+  rompere il kiosk se gestito male) e va aggiunto e testato a parte. Per ora gli aggiornamenti
+  dell'app si fanno via ADB. Questo è l'unico scostamento dallo schema fornito.
+- `idleTimeoutSeconds`, `sessionLimitSeconds`, `maxVolumePercent`, `brightnessPercent` sono
+  letti dalla config e disponibili nel modello dati, ma il loro enforcement attivo (timer di
+  inattività, limite sessione, controllo volume/luminosità) non è ancora cablato nella UI:
+  predisposto, da completare in un secondo momento.
+
 ## Possibili estensioni future (non incluse)
 
-- Timer di gioco per limitare la durata di ogni sessione.
-- Download/aggiornamento dei giochi gestito da remoto (MDM).
+- Enforcement di idle timeout, limite sessione, volume e luminosità da config.
+- Installazione APK silenziosa via `PackageInstaller` sotto device-owner.
+- Alert Telegram lato Apps Script per monitor offline/crash.
