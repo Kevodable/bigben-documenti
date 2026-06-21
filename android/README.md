@@ -130,13 +130,16 @@ server, consultabile da telefono).
   **non è ancora implementata** in questa versione — è il punto più delicato (rischio di
   rompere il kiosk se gestito male) e va aggiunto e testato a parte. Per ora gli aggiornamenti
   dell'app si fanno via ADB. Questo è l'unico scostamento dallo schema fornito.
-- `idleTimeoutSeconds`, `sessionLimitSeconds`, `maxVolumePercent`, `brightnessPercent` sono
-  letti dalla config e disponibili nel modello dati, ma il loro enforcement attivo (timer di
-  inattività, limite sessione, controllo volume/luminosità) non è ancora cablato nella UI:
-  predisposto, da completare in un secondo momento.
+- `idleTimeoutSeconds` è **attivo**: dopo quel numero di secondi senza interazioni su una
+  schermata diversa dalla griglia (Impostazioni/PIN/Diagnostica), l'app torna automaticamente
+  alla griglia pulita. Non disturba né la griglia né un gioco in corso (mentre un gioco è in
+  primo piano, il launcher è in HOME dietro di esso). Imposta `0` per disattivarlo.
+- `sessionLimitSeconds`, `maxVolumePercent`, `brightnessPercent` sono letti dalla config e
+  disponibili nel modello dati, ma il loro enforcement attivo (limite sessione, controllo
+  volume/luminosità) non è ancora cablato: predisposto, da completare in un secondo momento.
 
 ## Possibili estensioni future (non incluse)
 
-- Enforcement di idle timeout, limite sessione, volume e luminosità da config.
+- Enforcement di limite sessione, volume e luminosità da config.
 - Installazione APK silenziosa via `PackageInstaller` sotto device-owner.
 - Alert Telegram lato Apps Script per monitor offline/crash.

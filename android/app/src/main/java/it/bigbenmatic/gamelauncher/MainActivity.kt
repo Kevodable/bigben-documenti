@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: PrefsManager
     private val resumeTick = mutableStateOf(0)
+    // Bumped on every touch/key the launcher receives; drives the idle-timeout reset.
+    private val interactionTick = mutableStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,8 +59,17 @@ class MainActivity : ComponentActivity() {
         KioskManager.syncAllowedPackages(this, prefs.getSelectedPackages())
 
         setContent {
-            LauncherApp(prefs = prefs, resumeTick = resumeTick.value)
+            LauncherApp(
+                prefs = prefs,
+                resumeTick = resumeTick.value,
+                interactionTick = interactionTick.value,
+            )
         }
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        interactionTick.value = android.os.SystemClock.elapsedRealtime()
     }
 
     override fun onResume() {
@@ -66,6 +77,7 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
         KioskManager.engage(this)
         resumeTick.value++
+        interactionTick.value = android.os.SystemClock.elapsedRealtime()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -84,7 +96,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun LauncherApp(prefs: PrefsManager, resumeTick: Int) {
+private fun LauncherApp(prefs: PrefsManager, resumeTick: Int, interactionTick: Long) {
     val context = LocalContext.current
     val fleetApp = context.applicationContext as FleetApp
     val config by fleetApp.configRepository.config.collectAsState()
@@ -135,6 +147,18 @@ private fun LauncherApp(prefs: PrefsManager, resumeTick: Int) {
         if (screen == Screen.HOME && autoLaunch != null && installedByPkg.containsKey(autoLaunch)) {
             fleetApp.telemetryManager.recordGameLaunch(autoLaunch)
             InstalledAppsRepository.launch(context, autoLaunch)
+        }
+    }
+
+    // Idle timeout: if the operator leaves a sub-screen open (Settings/PIN/Diagnostics)
+    // and nobody touches the screen for idleTimeoutSeconds, return to the clean grid.
+    // Runs only off the HOME screen, so it never disturbs the grid itself nor a running
+    // game (while a game is foreground the launcher is on HOME behind it).
+    val idleTimeoutSeconds = config?.kiosk?.idleTimeoutSeconds ?: 0
+    LaunchedEffect(idleTimeoutSeconds, screen, interactionTick) {
+        if (idleTimeoutSeconds > 0 && screen != Screen.HOME) {
+            kotlinx.coroutines.delay(idleTimeoutSeconds * 1000L)
+            screen = Screen.HOME
         }
     }
 
